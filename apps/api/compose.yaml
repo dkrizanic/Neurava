@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: 'pgvector/pgvector:pg16'
+    environment:
+      - 'POSTGRES_DB=notebook'
+      - 'POSTGRES_PASSWORD=notebook'
+      - 'POSTGRES_USER=notebook'
+    ports:
+      - '5432:5432'
