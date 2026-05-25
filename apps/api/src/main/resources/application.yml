@@ -3,12 +3,25 @@ spring:
     name: notebook-api
   profiles:
     default: local
+  mvc:
+    problemdetails:
+      enabled: true
 
 server:
   port: 8080
+  error:
+    include-binding-errors: never
+    include-exception: false
+    include-message: never
+    include-stacktrace: never
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+app:
+  info:
+    name: ${APP_NAME:Neurava API}
+    version: ${APP_VERSION:0.0.1-SNAPSHOT}
