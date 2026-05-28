@@ -21,9 +21,9 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 **Functional Requirements:**
 
-Notebook has 24 functional requirements across authentication and workspace contexts, notebook core, AI memory search, AI assistant and AI actions, Google Calendar/Gmail/reminders/preparation planning, business-lite project history, and production quality.
+Notebook has 24 functional requirements across authentication and workspace contexts, notebook core, AI memory search, AI assistant and AI actions, Google Calendar/Gmail/reminders/planning, business-lite project history, and production quality.
 
-Architecturally, the requirements point to a full-stack AI productivity web app with strong domain separation. The app must support signed-in users, default Personal Context, invite-only Business Context, notes, projects, reminders, preparation plans, AI source references, AI action history, OpenAI-backed assistant workflows, Google Calendar event sync, and opt-in Smart Gmail search.
+Architecturally, the requirements point to a full-stack AI productivity web app with strong domain separation. The app must support signed-in users, default Personal Context, invite-only Business Context, notes, projects, reminders, plans, AI source references, AI action history, OpenAI-backed assistant workflows, Google Calendar event sync, and opt-in Smart Gmail search.
 
 **Non-Functional Requirements:**
 
@@ -544,7 +544,7 @@ notebook/
             api/
             components/
             pages/
-          preparation/
+          plans/
             api/
             components/
             pages/
@@ -588,7 +588,7 @@ notebook/
                   events/
                   errors/
                   config/
-              identity/
+              auth/
                 application/
                 domain/
                 infrastructure/
@@ -612,7 +612,7 @@ notebook/
                 application/
                 domain/
                 infrastructure/
-              preparation/
+              plans/
                 application/
                 domain/
                 infrastructure/
@@ -630,21 +630,21 @@ notebook/
             db/
               migration/
                 V1__init_extensions.sql
-                V2__identity_workspace.sql
+                V2__auth_workspace.sql
                 V3__notes.sql
                 V4__ai_actions.sql
-                V5__reminders_preparation_projects.sql
+                V5__reminders_plans_projects.sql
                 V6__integrations.sql
         test/
           java/
             com/notebook/api/
-              identity/
+              auth/
               workspace/
               notes/
               ai/
               search/
               reminders/
-              preparation/
+              plans/
               projects/
               integrations/
   .github/
@@ -688,9 +688,9 @@ notebook/
 
 **Authentication And Workspace Contexts (FR-1 to FR-4):**
 
-- Backend: `identity`, `workspace`, `shared.infrastructure.security`.
+- Backend: `auth`, `workspace`, `shared.infrastructure.security`.
 - Frontend: `features/auth`, `features/workspace`.
-- Database: `V2__identity_workspace.sql`.
+- Database: `V2__auth_workspace.sql`.
 
 **Notebook Core (FR-5 to FR-8):**
 
@@ -710,17 +710,17 @@ notebook/
 - Frontend: `features/assistant`.
 - Database: `V4__ai_actions.sql`.
 
-**Google Calendar, Gmail, Reminders, And Preparation Planning (FR-16 to FR-19):**
+**Google Calendar, Gmail, Reminders, And Planning (FR-16 to FR-19):**
 
-- Backend: `integrations`, `reminders`, `preparation`.
-- Frontend: `features/integrations`, `features/reminders`, `features/preparation`.
-- Database: `V5__reminders_preparation_projects.sql`, `V6__integrations.sql`.
+- Backend: `integrations`, `reminders`, `plans`.
+- Frontend: `features/integrations`, `features/reminders`, `features/plans`.
+- Database: `V5__reminders_plans_projects.sql`, `V6__integrations.sql`.
 
 **Business-Lite Project History (FR-20 to FR-21):**
 
 - Backend: `projects`, `workspace`.
 - Frontend: `features/projects`, `features/workspace`.
-- Database: `V5__reminders_preparation_projects.sql`.
+- Database: `V5__reminders_plans_projects.sql`.
 
 **Production Quality Layer (FR-22 to FR-24):**
 
@@ -739,7 +739,7 @@ notebook/
 
 **External Integrations:**
 
-- Google OAuth: `identity` and `integrations`.
+- Google OAuth: `auth` and `integrations`.
 - Google Calendar: `integrations` with `reminders`.
 - Gmail/Smart Gmail: `integrations` with `search` and `ai`.
 - OpenAI: `ai` and `search` through Spring AI.
@@ -822,21 +822,21 @@ The project structure supports all major architectural decisions. Backend domain
 
 All PRD feature groups are architecturally supported:
 
-- Authentication and workspace contexts: `identity`, `workspace`, shared security.
+- Authentication and workspace contexts: `auth`, `workspace`, shared security.
 - Notebook core: `notes`.
 - AI memory search: `search`, `ai`, pgvector.
 - AI assistant and AI actions: `ai`.
-- Google Calendar, Gmail, reminders, and preparation planning: `integrations`, `reminders`, `preparation`.
+- Google Calendar, Gmail, reminders, and planning: `integrations`, `reminders`, `plans`.
 - Business-lite project history: `projects`, `workspace`.
 - Production quality: shared errors/config, frontend shared UI, Docker, structured logs.
 
 **Functional Requirements Coverage:**
 
-- FR-1 to FR-4 are covered by identity, workspace, and security boundaries.
+- FR-1 to FR-4 are covered by auth, workspace, and security boundaries.
 - FR-5 to FR-8 are covered by notes and frontend editor structure.
 - FR-9 to FR-11 are covered by search, AI, source references, and pgvector.
 - FR-12 to FR-15 are covered by assistant, AI actions, preview/apply/revert, and Spring AI/OpenAI.
-- FR-16 to FR-19 are covered by integrations, reminders, preparation, and Google Calendar event sync.
+- FR-16 to FR-19 are covered by integrations, reminders, plans, and Google Calendar event sync.
 - FR-20 to FR-21 are covered by projects and workspace boundaries.
 - FR-22 to FR-24 are covered by frontend shared UI, error/loading states, and integration permission controls.
 

@@ -23,7 +23,7 @@ The long-term vision is an all-in-one personal and business workspace for notes,
 
 ### 2.1 Primary Persona
 
-The primary MVP user is a programmer, job seeker, student developer, freelancer, or technical professional who manages interview preparation, project notes, daily learning, work history, reminders, calendar events, and personal notes in one place.
+The primary MVP user is a programmer, job seeker, student developer, freelancer, or technical professional who manages interview planning, project notes, daily learning, work history, reminders, calendar events, and personal notes in one place.
 
 They need a tool that helps them remember what happened, prepare for upcoming work, retrieve small details from the past, and turn scattered information into useful next actions.
 
@@ -50,10 +50,10 @@ They need a tool that helps them remember what happened, prepare for upcoming wo
   - **Climax:** The app finds the right historical context and shows sources so the user trusts the result.
   - **Resolution:** The user can continue from the found context, create a reminder, or ask the assistant for next actions.
 
-- **UJ-2. Professional preparation planning.**
+- **UJ-2. Professional planning.**
   - **Persona + context:** A job seeker wants to prepare for an interview week.
   - **Entry state:** The user has notes, reminders, and optionally Google Calendar connected.
-  - **Path:** The user asks the assistant to create a preparation plan, the app uses relevant notes and calendar context, the assistant creates plan items/reminders, and the user reviews what changed.
+  - **Path:** The user asks the assistant to create a plan, the app uses relevant notes and calendar context, the assistant creates plan items/reminders, and the user reviews what changed.
   - **Climax:** The user gets a practical plan with notes, reminders, calendar-aware scheduling, and next steps.
   - **Resolution:** The user can follow the plan, edit it manually, or revert AI-created changes.
 
@@ -74,7 +74,7 @@ They need a tool that helps them remember what happened, prepare for upcoming wo
 - **Note** - A user-created record containing professional, personal, planning, or history content.
 - **Project** - A Business Context or professional planning record that groups related notes, history, and summaries.
 - **Reminder** - A time-based or context-based item the user or assistant creates to prompt future action.
-- **Preparation Plan** - A structured plan for interviews, jobs, meetings, projects, or professional preparation.
+- **Plan** - A structured plan for interviews, jobs, meetings, projects, or professional planning.
 - **AI Assistant** - The conversational interface that can search, summarize, organize, create, and modify supported app data.
 - **AI Action** - A data-changing operation performed by the AI Assistant.
 - **AI Action History** - The record of an AI Action, including changed entities, previous state, current state, visible summary, and revert capability.
@@ -101,7 +101,7 @@ User can sign in with a Google account.
 Every user has a Personal Context by default.
 
 **Consequences:**
-- New users can create notes, reminders, preparation plans, and AI conversations without joining a company.
+- New users can create notes, reminders, plans, and AI conversations without joining a company.
 - Personal data remains scoped to the Personal Context.
 
 #### FR-3: Invite-only Business Context
@@ -138,7 +138,7 @@ User can create, edit, archive/delete, and view notes.
 
 #### FR-6: Note organization
 
-User can organize notes with tags/categories, favorites or pinned status, and relevant links to reminders, preparation plans, calendar events, or projects.
+User can organize notes with tags/categories, favorites or pinned status, and relevant links to reminders, plans, calendar events, or projects.
 
 **Consequences:**
 - User can filter notes by context, tag/category, date, favorite/pinned status, and relevant linked entity.
@@ -153,7 +153,7 @@ User can search notes manually without AI.
 
 #### FR-8: Professional editor
 
-User can write professional notes, preparation notes, and personal journal-style notes in a polished editor.
+User can write professional notes, planning notes, and personal journal-style notes in a polished editor.
 
 **Consequences:**
 - Editor supports a clean writing experience suitable for repeated daily use.
@@ -185,7 +185,7 @@ AI answers must show the sources used to produce the answer.
 
 #### FR-11: History summaries
 
-User can ask AI to summarize a time period, topic, project, preparation plan, or selected history.
+User can ask AI to summarize a time period, topic, project, plan, or selected history.
 
 **Consequences:**
 - Summaries include important events, decisions, unresolved items, and suggested next actions where relevant.
@@ -209,7 +209,7 @@ User can interact with the AI Assistant through natural language.
 AI Assistant can propose supported changes to app data, show a preview before applying, and then apply the changes when the user chooses to proceed.
 
 **Consequences:**
-- Supported actions include creating notes, creating reminders, creating preparation plans, creating project summaries, applying tags/categories, saving AI-generated summaries as notes, linking notes to reminders/plans/projects, fixing grammar, and generating complete notes from messy user-provided information.
+- Supported actions include creating notes, creating reminders, creating plans, creating project summaries, applying tags/categories, saving AI-generated summaries as notes, linking notes to reminders/plans/projects, fixing grammar, and generating complete notes from messy user-provided information.
 - Unsupported or risky actions include deleting/archiving notes, sending emails, inviting business users, changing calendar events, modifying company/business membership, or permanently erasing history unless the user performs an explicit manual action.
 - AI edits show a preview before applying so the user can inspect the proposed change.
 
@@ -233,7 +233,7 @@ The assistant should be designed around tool/action invocation so future MCP-sty
 - Architecture should avoid hard-coding assistant behavior as static chat only.
 - MVP uses the OpenAI API as the LLM provider.
 
-### 4.5 Google Calendar, Gmail, Reminders, And Preparation Planning
+### 4.5 Google Calendar, Gmail, Reminders, And Planning
 
 **Description:** The app integrates with Google services to make planning and history useful, while keeping permissions explicit and user-controlled.
 
@@ -246,7 +246,7 @@ User can connect Google Calendar with explicit permission.
 **Consequences:**
 - In Personal Context MVP, Calendar integration is read-only.
 - App can view upcoming calendar context after permission is granted.
-- User can link notes, reminders, and preparation plans to calendar events.
+- User can link notes, reminders, and plans to calendar events.
 - AI can use calendar context in planning answers.
 - Full create/update calendar support is deferred to Business or future phases.
 
@@ -256,7 +256,7 @@ User can connect Gmail with explicit permission.
 
 **Consequences:**
 - User can explicitly opt into Smart Gmail integration.
-- When Smart Gmail is enabled, AI can perform full Gmail search within granted permissions for preparation and history use cases.
+- When Smart Gmail is enabled, AI can perform full Gmail search within granted permissions for planning and history use cases.
 - AI answers using Gmail content include Source References.
 - Smart Gmail full search must not be enabled silently.
 
@@ -266,17 +266,17 @@ User can create reminders manually, and AI can create reminders as AI Actions.
 
 **Consequences:**
 - AI-created reminders are visible in AI Action History and can be reverted.
-- Reminders can relate to notes, preparation plans, calendar context, or projects.
+- Reminders can relate to notes, plans, calendar context, or projects.
 - Reminders can sync with Google after the user grants permission.
 - MVP syncs reminders to Google Calendar events. Google Tasks support is deferred.
 
-#### FR-19: Preparation plans
+#### FR-19: Planning plans
 
-User can create a Preparation Plan for interviews, jobs, meetings, or projects.
+User can create a Plan for interviews, jobs, meetings, or projects.
 
 **Consequences:**
-- Preparation Plans can include notes, tasks, reminders, calendar context, and AI-generated next steps.
-- AI can generate a preparation plan from user input and available context.
+- Plans can include notes, tasks, reminders, calendar context, and AI-generated next steps.
+- AI can generate a plan from user input and available context.
 
 ### 4.6 Business-Lite Project History
 
@@ -359,7 +359,7 @@ User can understand and manage connected Google Calendar and Gmail permissions.
 - Google Calendar integration.
 - Gmail integration.
 - Reminders.
-- Preparation Plans.
+- Plans.
 - Business-lite Projects and project notes.
 - Production-quality responsive web UX.
 
@@ -379,7 +379,7 @@ User can understand and manage connected Google Calendar and Gmail permissions.
 **Primary**
 
 - **SM-1:** Weak-fragment retrieval success - user can find a relevant historical note, project, event, or email from a vague query. Validates FR-9, FR-10.
-- **SM-2:** Preparation planning usefulness - user can create a useful preparation plan with notes, reminders, and calendar context. Validates FR-16, FR-18, FR-19.
+- **SM-2:** Planning planning usefulness - user can create a useful plan with notes, reminders, and calendar context. Validates FR-16, FR-18, FR-19.
 - **SM-3:** Project history usefulness - user can generate a project history summary with timeline, decisions, unresolved items, and next actions. Validates FR-11, FR-20.
 
 **Secondary**

@@ -1,71 +1,64 @@
-const navItems = [
-  'Notes',
-  'Assistant',
-  'Search',
-  'Reminders',
-  'Preparation',
-  'Projects',
-  'Integrations',
-];
+import { Bell, Bot, CalendarRange, FileText, FolderKanban, Plug, Search, Settings } from 'lucide-react';
+import { NavLink, Outlet } from 'react-router';
+import { sections, type SectionId } from './sections';
+
+const navIcons: Record<SectionId, typeof FileText> = {
+  assistant: Bot,
+  integrations: Plug,
+  notes: FileText,
+  plans: CalendarRange,
+  projects: FolderKanban,
+  reminders: Bell,
+  search: Search,
+};
 
 export function App() {
   return (
     <main className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
-        <div className="brand">
+        <NavLink className="brand" to="/" aria-label="Notebook overview">
           <span className="brand-mark" aria-hidden="true">
             N
           </span>
-          <div>
-            <p className="eyebrow">Notebook</p>
-            <h1>Personal</h1>
-          </div>
-        </div>
+          <span>
+            <span className="eyebrow">Notebook</span>
+            <span className="brand-title">Personal</span>
+          </span>
+        </NavLink>
 
-        <nav className="nav-list">
-          {navItems.map((item) => (
-            <button key={item} type="button" className="nav-item">
-              {item}
-            </button>
-          ))}
+        <nav className="nav-list" aria-label="Product sections">
+          {sections.map((item) => {
+            const Icon = navIcons[item.id];
+
+            return (
+              <NavLink
+                aria-label={`Open ${item.label}`}
+                className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}
+                key={item.path}
+                to={item.path}
+              >
+                <Icon aria-hidden="true" size={18} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
       </aside>
 
       <section className="workspace" aria-labelledby="workspace-title">
         <header className="workspace-header">
           <div>
-            <p className="eyebrow">Production scaffold</p>
-            <h2 id="workspace-title">AI-native notebook foundation</h2>
+            <p className="eyebrow">Production app shell</p>
+            <h1 id="workspace-title">Personal workspace</h1>
           </div>
-          <button type="button" className="primary-action">
-            Sign in with Google
+          <button className="icon-button" type="button" aria-label="Open workspace settings">
+            <Settings aria-hidden="true" size={20} />
           </button>
         </header>
 
-        <section className="hero-panel" aria-label="Notebook status">
-          <div>
-            <p className="eyebrow">Story 1.1</p>
-            <h3>Monorepo, Docker, API, and web shell are ready.</h3>
-            <p>
-              The next stories can build authentication, workspace context, notes,
-              AI actions, and integrations on top of this foundation.
-            </p>
-          </div>
-        </section>
-
-        <section className="status-grid" aria-label="Foundation checklist">
-          {[
-            ['Web', 'React + TypeScript + Vite'],
-            ['API', 'Spring Boot + Java 21'],
-            ['Data', 'PostgreSQL with pgvector'],
-            ['Architecture', 'DDD modules with events'],
-          ].map(([label, value]) => (
-            <article key={label} className="status-card">
-              <p>{label}</p>
-              <strong>{value}</strong>
-            </article>
-          ))}
-        </section>
+        <div className="workspace-body">
+          <Outlet />
+        </div>
       </section>
     </main>
   );

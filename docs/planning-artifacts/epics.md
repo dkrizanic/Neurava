@@ -21,7 +21,7 @@ This document provides the complete epic and story breakdown for Notebook, decom
 
 FR1: User can sign in with a Google account; the app creates or retrieves the user's account and provides a secure authenticated session.
 
-FR2: Every user has a default Personal Context for notes, reminders, preparation plans, and AI conversations.
+FR2: Every user has a default Personal Context for notes, reminders, plans, and AI conversations.
 
 FR3: User can access a Business Context only after a registered company invites them for collaboration and they accept or belong to that context; registration includes normal user registration and a visible option to register a company.
 
@@ -29,17 +29,17 @@ FR4: The app scopes navigation, search, assistant responses, notes, reminders, p
 
 FR5: User can create, edit, archive/delete, and view notes; notes persist and belong to a Workspace Context.
 
-FR6: User can organize notes with tags/categories, favorites or pinned status, and relevant links to reminders, preparation plans, calendar events, or projects.
+FR6: User can organize notes with tags/categories, favorites or pinned status, and relevant links to reminders, plans, calendar events, or projects.
 
 FR7: User can manually search note title and body content without AI.
 
-FR8: User can write professional notes, preparation notes, and personal journal-style notes in a polished editor with autosave or clear save-state feedback, selectable writing mode, and examples/previews of modes.
+FR8: User can write professional notes, planning notes, and personal journal-style notes in a polished editor with autosave or clear save-state feedback, selectable writing mode, and examples/previews of modes.
 
 FR9: User can ask natural-language questions across notes, reminders, projects, calendar context, and connected Gmail context, including weak-fragment searches.
 
 FR10: AI answers must show Source References and allow the user to open referenced sources.
 
-FR11: User can ask AI to summarize a time period, topic, project, preparation plan, or selected history, including important events, decisions, unresolved items, and next actions where relevant.
+FR11: User can ask AI to summarize a time period, topic, project, plan, or selected history, including important events, decisions, unresolved items, and next actions where relevant.
 
 FR12: User can interact with the AI Assistant through natural language; assistant can search, summarize, organize, create notes, suggest tags, suggest reminders, draft plans, explain history, and ask clarifying questions.
 
@@ -49,13 +49,13 @@ FR14: Every AI Action that changes data creates an AI Action History record with
 
 FR15: Assistant should be designed around tool/action invocation for future MCP-style integrations, while MVP uses OpenAI API and does not include a public custom MCP marketplace.
 
-FR16: User can connect Google Calendar with explicit permission; Personal Context MVP is read-only, supports upcoming calendar context, links to notes/reminders/preparation plans, and AI planning context.
+FR16: User can connect Google Calendar with explicit permission; Personal Context MVP is read-only, supports upcoming calendar context, links to notes/reminders/plans, and AI planning context.
 
 FR17: User can explicitly opt into Smart Gmail integration; when enabled, AI can perform full Gmail search within granted permissions and must show Source References.
 
-FR18: User can create reminders manually, and AI can create reminders as AI Actions; reminders can relate to notes, preparation plans, calendar context, or projects and sync to Google Calendar events after permission.
+FR18: User can create reminders manually, and AI can create reminders as AI Actions; reminders can relate to notes, plans, calendar context, or projects and sync to Google Calendar events after permission.
 
-FR19: User can create a Preparation Plan for interviews, jobs, meetings, or projects; plans can include notes, tasks, reminders, calendar context, and AI-generated next steps.
+FR19: User can create a Plan for interviews, jobs, meetings, or projects; plans can include notes, tasks, reminders, calendar context, and AI-generated next steps.
 
 FR20: User in a Business Context can use basic Projects and project notes; project history can be summarized by AI and remains scoped to the Business Context.
 
@@ -109,8 +109,8 @@ NFR10: Dates/times exchanged through APIs must use ISO 8601 UTC strings.
 - AI Action History stores before/after state forever unless related data is deleted by policy or explicit user action.
 - Docker Compose starts PostgreSQL with pgvector and local dependencies.
 - GitHub Actions is recommended for CI after scaffold.
-- Backend domain modules: `identity`, `workspace`, `notes`, `ai`, `search`, `reminders`, `preparation`, `projects`, `integrations`, `shared`.
-- Frontend feature modules: `auth`, `workspace`, `notes`, `assistant`, `search`, `reminders`, `preparation`, `projects`, `integrations`, `shared`.
+- Backend domain modules: `auth`, `workspace`, `notes`, `ai`, `search`, `reminders`, `plans`, `projects`, `integrations`, `shared`.
+- Frontend feature modules: `auth`, `workspace`, `notes`, `assistant`, `search`, `reminders`, `plans`, `projects`, `integrations`, `shared`.
 
 ### UX Design Requirements
 
@@ -164,7 +164,7 @@ FR17: Epic 5 - Smart Gmail opt-in and source-aware Gmail search.
 
 FR18: Epic 5 - Manual and AI reminders with Google Calendar event sync.
 
-FR19: Epic 5 - Preparation plans.
+FR19: Epic 5 - Plans.
 
 FR20: Epic 6 - Business-lite projects and project notes.
 
@@ -202,9 +202,9 @@ Users can let AI propose and apply supported changes, preview edits, review AI A
 
 **FRs covered:** FR13, FR14
 
-### Epic 5: Calendar, Gmail, Reminders, And Preparation Planning
+### Epic 5: Calendar, Gmail, Reminders, And Planning
 
-Users can connect Google Calendar/Gmail, manage reminders, sync reminders to Google Calendar events, and build preparation plans with calendar and AI context.
+Users can connect Google Calendar/Gmail, manage reminders, sync reminders to Google Calendar events, and build plans with calendar and AI context.
 
 **FRs covered:** FR16, FR17, FR18, FR19, FR24
 
@@ -232,7 +232,7 @@ So that the product has a production-ready foundation for all user-facing work.
 **And** Docker Compose defines PostgreSQL with pgvector support
 **And** root environment examples and README setup instructions exist
 **And** the frontend and backend can be started independently in local development
-**And** the backend contains empty DDD domain module folders for identity, workspace, notes, ai, search, reminders, preparation, projects, integrations, and shared
+**And** the backend contains empty DDD domain module folders for auth, workspace, notes, ai, search, reminders, plans, projects, integrations, and shared
 
 ### Story 1.2: Backend Health And API Foundation
 
@@ -260,7 +260,7 @@ So that I can navigate the product comfortably before individual features are ad
 
 **Given** the web app is running
 **When** the user opens the app
-**Then** the app displays a responsive layout with top-level navigation areas for notes, assistant/search, reminders, preparation, projects, and integrations
+**Then** the app displays a responsive layout with top-level navigation areas for notes, assistant/search, reminders, plans, projects, and integrations
 **And** the layout works on desktop and narrower web viewports without overlap
 **And** shared UI components exist for buttons, forms, dialogs, loading states, and empty states
 **And** the app has accessible labels for primary navigation and controls
@@ -377,7 +377,7 @@ So that I can keep related information easy to find.
 **When** the user adds tags/categories or marks the note as favorite/pinned
 **Then** the note metadata is saved and visible in the UI
 **And** the user can filter notes by tag/category and favorite/pinned status
-**And** the user can link a note to available reminders, preparation plans, calendar events, or projects when those entities exist
+**And** the user can link a note to available reminders, plans, calendar events, or projects when those entities exist
 **And** links respect Workspace Context boundaries
 
 ### Story 2.5: Manual Note Search And Filters
@@ -464,7 +464,7 @@ So that I can trust and inspect the answer.
 ### Story 3.4: History Summary Generation
 
 As a signed-in user,
-I want AI to summarize a topic, project, preparation plan, or time period,
+I want AI to summarize a topic, project, plan, or time period,
 So that I can quickly regain context.
 
 **Acceptance Criteria:**
@@ -535,7 +535,7 @@ So that AI can help me create and organize notebook data.
 **Given** an AI change preview exists
 **When** the user applies the change
 **Then** the system persists the supported change
-**And** supported changes include creating notes, reminders, preparation plans, project summaries, tags/categories, saved summaries, and entity links
+**And** supported changes include creating notes, reminders, plans, project summaries, tags/categories, saved summaries, and entity links
 **And** unsupported risky actions are refused or routed to explicit manual user action
 **And** the UI shows what changed after applying
 
@@ -599,9 +599,9 @@ So that raw thoughts become useful structured notes.
 **And** applying the generated note saves it in the active Workspace Context
 **And** the action can be reviewed and reverted
 
-## Epic 5: Calendar, Gmail, Reminders, And Preparation Planning
+## Epic 5: Calendar, Gmail, Reminders, And Planning
 
-Users can connect Google Calendar/Gmail, manage reminders, sync reminders to Google Calendar events, and build preparation plans with calendar and AI context.
+Users can connect Google Calendar/Gmail, manage reminders, sync reminders to Google Calendar events, and build plans with calendar and AI context.
 
 ### Story 5.1: Google Calendar Permission Connection
 
@@ -629,7 +629,7 @@ So that planning can account for my schedule.
 **Given** Calendar is connected
 **When** the user opens calendar-aware planning areas
 **Then** upcoming calendar events are visible where relevant
-**And** notes, reminders, and preparation plans can link to calendar events
+**And** notes, reminders, and plans can link to calendar events
 **And** Calendar data is not shown when permission is absent or revoked
 **And** Calendar errors show recoverable permission/error states
 
@@ -652,7 +652,7 @@ So that AI can use email context only when I choose.
 
 As a signed-in user with Smart Gmail enabled,
 I want AI to search relevant Gmail context,
-So that email history can help with preparation and recall.
+So that email history can help with plans and recall.
 
 **Acceptance Criteria:**
 
@@ -693,29 +693,29 @@ So that I can quickly turn plans into scheduled actions.
 **And** Calendar sync occurs if enabled
 **And** the AI-created reminder can be reverted
 
-### Story 5.7: Preparation Plans
+### Story 5.7: Plans
 
 As a job seeker or professional,
-I want to create preparation plans,
+I want to create plans,
 So that I can organize interviews, meetings, jobs, or project work.
 
 **Acceptance Criteria:**
 
-**Given** the user opens preparation planning
+**Given** the user opens planning
 **When** the user creates a plan
 **Then** the plan can include notes, tasks, reminders, calendar context, and next steps
 **And** plans are scoped to the active Workspace Context
 **And** empty and loading states are designed
 
-### Story 5.8: AI-Generated Preparation Plan
+### Story 5.8: AI-Generated Plan
 
 As a job seeker or professional,
-I want AI to generate a preparation plan from my context,
+I want AI to generate a plan from my context,
 So that I can get a practical plan quickly.
 
 **Acceptance Criteria:**
 
-**Given** the user provides a preparation goal
+**Given** the user provides a planning goal
 **When** the user asks AI to generate a plan
 **Then** AI uses available notes and calendar context where permitted
 **And** AI returns a preview with plan items, reminders, and next steps
