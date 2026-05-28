@@ -3,7 +3,7 @@ import { Button } from '../../../shared/ui';
 import { useAuth } from '../hooks/useAuth';
 
 export function AuthStatus() {
-  const { account, authenticated, isLoading, signIn, signOut } = useAuth();
+  const { account, activeWorkspace, authenticated, isLoading, signIn, signOut, workspaceSwitcherAvailable } = useAuth();
 
   if (isLoading) {
     return <span className="auth-status auth-status--muted">Checking session</span>;
@@ -24,8 +24,9 @@ export function AuthStatus() {
       </span>
       <span className="auth-status__text">
         <strong>{account.displayName ?? account.email ?? 'Signed in'}</strong>
-        {account.email ? <span>{account.email}</span> : null}
+        <span>{activeWorkspace?.name ?? account.email ?? 'Personal'}</span>
       </span>
+      {workspaceSwitcherAvailable ? <button className="workspace-switcher" type="button">Switch</button> : null}
       <Button
         aria-label="Sign out"
         icon={<LogOut aria-hidden="true" size={18} />}

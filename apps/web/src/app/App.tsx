@@ -1,6 +1,7 @@
 import { Bell, Bot, CalendarRange, FileText, FolderKanban, Plug, Search, Settings } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { AuthStatus } from '../features/auth/components/AuthStatus';
+import { useAuth } from '../features/auth/hooks/useAuth';
 import { sections, type SectionId } from './sections';
 
 const navIcons: Record<SectionId, typeof FileText> = {
@@ -14,6 +15,8 @@ const navIcons: Record<SectionId, typeof FileText> = {
 };
 
 export function App() {
+  const { activeWorkspace } = useAuth();
+
   return (
     <main className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -50,7 +53,7 @@ export function App() {
         <header className="workspace-header">
           <div>
             <p className="eyebrow">Production app shell</p>
-            <h1 id="workspace-title">Personal workspace</h1>
+            <h1 id="workspace-title">{activeWorkspace?.name ?? 'Personal'} workspace</h1>
           </div>
           <div className="workspace-actions">
             <AuthStatus />

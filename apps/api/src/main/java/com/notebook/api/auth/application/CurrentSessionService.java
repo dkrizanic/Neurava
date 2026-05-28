@@ -7,14 +7,18 @@ import org.springframework.stereotype.Service;
 
 import com.notebook.api.auth.application.CurrentSession.AccountSummary;
 import com.notebook.api.auth.domain.AuthAccount;
+import com.notebook.api.workspace.application.PersonalWorkspaceService;
+import com.notebook.api.workspace.application.WorkspaceSession;
 
 @Service
 public class CurrentSessionService {
 
 	private final AuthAccountService accountService;
+	private final PersonalWorkspaceService personalWorkspaces;
 
-	public CurrentSessionService(AuthAccountService accountService) {
+	public CurrentSessionService(AuthAccountService accountService, PersonalWorkspaceService personalWorkspaces) {
 		this.accountService = accountService;
+		this.personalWorkspaces = personalWorkspaces;
 	}
 
 	public CurrentSession currentSession(Authentication authentication) {
@@ -25,13 +29,17 @@ public class CurrentSessionService {
 
 		if (authentication.getPrincipal() instanceof OAuth2User) {
 			AuthAccount account = this.accountService.createOrUpdateFrom(authentication);
-			return CurrentSession.authenticated(new AccountSummary(
-					account.getId(),
-					account.getEmail(),
-					account.getDisplayName(),
-					account.getAvatarUrl()));
+			WorkspaceSession workspace = this.personalWorkspaces.ensurePersonalWorkspace(account);
+			return CurrentSession.authenticated(
+					new AccountSummary(
+							account.getId(),
+							account.getEmail(),
+							account.getDisplayName(),
+							account.getAvatarUrl()),
+					workspace.activeWorkspace(),
+					workspace.workspaceSwitcherAvailable());
 		}
 
-		return CurrentSession.authenticated(new AccountSummary(null, null, authentication.getName(), null));
+		return CurrentSession.authenticated(new AccountSummary(null, null, authentication.getName(), null), null, false);
 	}
 }

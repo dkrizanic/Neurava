@@ -361,6 +361,17 @@ p {
   font-size: 0.82rem;
 }
 
+.workspace-switcher {
+  background: #eef6f5;
+  border: 1px solid #b9d8d4;
+  border-radius: 8px;
+  color: #0f766e;
+  font-size: 0.85rem;
+  font-weight: 760;
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
 .session-warning {
   background: #fff7ed;
   border: 1px solid #fed7aa;
