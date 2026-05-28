@@ -78,4 +78,5 @@ context:
 ## Verification
 
 **Commands:**
+- `npm --prefix apps/web run test` -- expected: frontend app shell and route state tests pass.
 - `npm --prefix apps/web run build` -- expected: TypeScript and Vite build complete successfully.

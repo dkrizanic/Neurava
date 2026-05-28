@@ -78,4 +78,5 @@ context:
 
 **Commands:**
 - `.\mvnw.cmd -q test` from `apps/api` with PostgreSQL running -- expected: backend tests pass.
+- `npm --prefix apps/web run test` -- expected: frontend Personal Context display tests pass.
 - `npm --prefix apps/web run build` -- expected: TypeScript and Vite build complete successfully.

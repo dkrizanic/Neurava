@@ -81,5 +81,6 @@ context:
 
 **Commands:**
 - `.\mvnw.cmd -q -DskipTests compile` from `apps/api` -- expected: Java compiles.
+- `npm --prefix apps/web run test` -- expected: frontend auth state tests pass.
 - `npm --prefix apps/web run build` -- expected: TypeScript and Vite build complete successfully.
 - `.\mvnw.cmd -q test` from `apps/api` with PostgreSQL running -- expected: backend tests pass.
