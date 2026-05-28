@@ -41,7 +41,7 @@ Expose a small, stable backend API foundation for the frontend and later domain 
 - `apps/api/src/main/java/com/notebook/api/shared/infrastructure/errors/GlobalApiExceptionHandler.java`
 - `apps/api/src/main/resources/application.yml`
 - `apps/api/src/main/resources/application-local.yml`
-- `apps/api/src/test/java/com/notebook/api/shared/infrastructure/web/SystemApiContractTests.java`
+- `apps/api/src/test/java/com/notebook/api/shared/functional/SystemApiFunctionalTest.java`
 
 ## Verification
 

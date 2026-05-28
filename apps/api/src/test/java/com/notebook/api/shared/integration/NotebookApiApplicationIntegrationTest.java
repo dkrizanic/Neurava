@@ -1,10 +1,10 @@
-package com.notebook.api;
+package com.notebook.api.shared.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class NotebookApiApplicationTests {
+class NotebookApiApplicationIntegrationTest {
 
 	@Test
 	void contextLoads() {

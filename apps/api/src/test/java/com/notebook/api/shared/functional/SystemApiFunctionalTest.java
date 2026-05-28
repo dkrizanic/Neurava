@@ -1,4 +1,4 @@
-package com.notebook.api.shared.infrastructure.web;
+package com.notebook.api.shared.functional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
@@ -16,9 +16,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.notebook.api.shared.infrastructure.web.ApiPaths;
+
 @SpringBootTest
 @AutoConfigureMockMvc
-class SystemApiContractTests {
+class SystemApiFunctionalTest {
 
 	@Autowired
 	private MockMvc mockMvc;

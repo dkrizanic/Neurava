@@ -1,4 +1,4 @@
-package com.notebook.api.auth.infrastructure.web;
+package com.notebook.api.auth.functional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -19,7 +19,7 @@ import com.notebook.api.shared.infrastructure.web.ApiPaths;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class AuthSessionApiContractTests {
+class AuthSessionFunctionalTest {
 
 	@Autowired
 	private MockMvc mockMvc;

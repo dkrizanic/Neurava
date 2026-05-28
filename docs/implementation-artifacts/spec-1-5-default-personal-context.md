@@ -43,7 +43,8 @@ context:
 - `apps/api/src/main/java/com/notebook/api/workspace/**` -- workspace domain, persistence, and Personal Context service.
 - `apps/api/src/main/java/com/notebook/api/auth/application/CurrentSession.java` -- session shape with active workspace.
 - `apps/api/src/main/java/com/notebook/api/auth/application/CurrentSessionService.java` -- ensures Personal Context for OAuth accounts.
-- `apps/api/src/test/java/com/notebook/api/auth/infrastructure/web/AuthSessionApiContractTests.java` -- functional session contract coverage.
+- `apps/api/src/test/java/com/notebook/api/auth/functional/AuthSessionFunctionalTest.java` -- functional session contract coverage.
+- `apps/api/src/test/java/com/notebook/api/workspace/unit/PersonalWorkspaceServiceUnitTest.java` -- Personal Context unit behavior.
 - `apps/web/src/features/auth/types.ts` -- frontend session type with active workspace metadata.
 - `apps/web/src/app/App.tsx` and `apps/web/src/features/auth/components/AuthStatus.tsx` -- active context display and no switcher for single context.
 
@@ -77,6 +78,9 @@ context:
 ## Verification
 
 **Commands:**
+- `npm run test:api:unit` -- expected: backend unit tests pass.
+- `npm run test:api:functional` -- expected: backend functional tests pass.
+- `npm run test:api:integration` -- expected: backend integration tests pass.
 - `.\mvnw.cmd -q test` from `apps/api` with PostgreSQL running -- expected: backend tests pass.
 - `npm --prefix apps/web run test` -- expected: frontend Personal Context display tests pass.
 - `npm --prefix apps/web run build` -- expected: TypeScript and Vite build complete successfully.

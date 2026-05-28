@@ -45,7 +45,8 @@ context:
 - `apps/api/src/main/java/com/notebook/api/shared/infrastructure/security/SecurityConfig.java` -- security filter chain, OAuth login, session/logout behavior.
 - `apps/api/src/main/resources/db/migration/V3__auth_accounts.sql` -- persisted account table.
 - `apps/api/src/main/resources/application.yml` and `application-local.yml` -- session cookie and OAuth-safe local configuration.
-- `apps/api/src/test/java/com/notebook/api/auth/infrastructure/web/AuthSessionApiContractTests.java` -- MockMvc auth/session contract.
+- `apps/api/src/test/java/com/notebook/api/auth/functional/AuthSessionFunctionalTest.java` -- MockMvc auth/session functional contract.
+- `apps/api/src/test/java/com/notebook/api/auth/unit/AuthAccountServiceUnitTest.java` -- auth service unit behavior.
 - `apps/web/src/app/providers/AuthProvider.tsx` -- current-session loading and sign-in/logout actions.
 - `apps/web/src/features/auth/**` -- frontend auth API/types and signed-out prompt.
 - `apps/web/src/app/App.tsx` and route screens -- display session-aware account/sign-in state.
@@ -81,6 +82,9 @@ context:
 
 **Commands:**
 - `.\mvnw.cmd -q -DskipTests compile` from `apps/api` -- expected: Java compiles.
+- `npm run test:api:unit` -- expected: backend unit tests pass.
+- `npm run test:api:functional` -- expected: backend functional tests pass.
+- `npm run test:api:integration` -- expected: backend integration tests pass.
 - `npm --prefix apps/web run test` -- expected: frontend auth state tests pass.
 - `npm --prefix apps/web run build` -- expected: TypeScript and Vite build complete successfully.
 - `.\mvnw.cmd -q test` from `apps/api` with PostgreSQL running -- expected: backend tests pass.

@@ -6,6 +6,10 @@
     "dev:web": "npm --prefix apps/web run dev",
     "build:web": "npm --prefix apps/web run build",
     "preview:web": "npm --prefix apps/web run preview",
-    "test:web": "npm --prefix apps/web run test"
+    "test:web": "npm --prefix apps/web run test",
+    "test:api": "cd apps/api && mvnw.cmd test",
+    "test:api:unit": "cd apps/api && mvnw.cmd -Dtest=*UnitTest test",
+    "test:api:functional": "cd apps/api && mvnw.cmd -Dtest=*FunctionalTest test",
+    "test:api:integration": "cd apps/api && mvnw.cmd -Dtest=*IntegrationTest test"
   }
 }
