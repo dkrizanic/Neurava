@@ -1,5 +1,7 @@
 import { CalendarCheck, FileText, PlugZap, Search, Sparkles, Target } from 'lucide-react';
 import { Link } from 'react-router';
+import { SignedOutPrompt } from '../../features/auth/components/SignedOutPrompt';
+import { useAuth } from '../../features/auth/hooks/useAuth';
 import { Button, Field } from '../../shared/ui';
 import { sections } from '../sections';
 
@@ -12,6 +14,8 @@ const highlights = [
 const previewIcons = [FileText, Sparkles, Search, CalendarCheck, Target, PlugZap];
 
 export function OverviewPage() {
+  const { authenticated, error } = useAuth();
+
   return (
     <div className="route-stack">
       <section className="overview-hero" aria-labelledby="overview-title">
@@ -35,6 +39,9 @@ export function OverviewPage() {
           </Button>
         </form>
       </section>
+
+      {!authenticated ? <SignedOutPrompt /> : null}
+      {error ? <p className="session-warning">{error}</p> : null}
 
       <section className="section-grid" aria-label="Top-level sections">
         {sections.map((section, index) => {

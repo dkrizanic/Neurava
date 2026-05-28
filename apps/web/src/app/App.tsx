@@ -1,5 +1,6 @@
 import { Bell, Bot, CalendarRange, FileText, FolderKanban, Plug, Search, Settings } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
+import { AuthStatus } from '../features/auth/components/AuthStatus';
 import { sections, type SectionId } from './sections';
 
 const navIcons: Record<SectionId, typeof FileText> = {
@@ -51,9 +52,12 @@ export function App() {
             <p className="eyebrow">Production app shell</p>
             <h1 id="workspace-title">Personal workspace</h1>
           </div>
-          <button className="icon-button" type="button" aria-label="Open workspace settings">
-            <Settings aria-hidden="true" size={20} />
-          </button>
+          <div className="workspace-actions">
+            <AuthStatus />
+            <button className="icon-button" type="button" aria-label="Open workspace settings">
+              <Settings aria-hidden="true" size={20} />
+            </button>
+          </div>
         </header>
 
         <div className="workspace-body">

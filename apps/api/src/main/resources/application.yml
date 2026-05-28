@@ -9,6 +9,12 @@ spring:
 
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${APP_SESSION_COOKIE_SECURE:true}
   error:
     include-binding-errors: never
     include-exception: false
@@ -22,6 +28,7 @@ management:
         include: health,info
 
 app:
+  web-origin: ${APP_WEB_ORIGIN:http://localhost:5173}
   info:
     name: ${APP_NAME:Neurava API}
     version: ${APP_VERSION:0.0.1-SNAPSHOT}

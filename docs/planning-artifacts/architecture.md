@@ -630,11 +630,13 @@ notebook/
             db/
               migration/
                 V1__init_extensions.sql
-                V2__auth_workspace.sql
-                V3__notes.sql
-                V4__ai_actions.sql
-                V5__reminders_plans_projects.sql
-                V6__integrations.sql
+                V2__create_event_publication.sql
+                V3__auth_accounts.sql
+                V4__workspace_contexts.sql
+                V5__notes.sql
+                V6__ai_actions.sql
+                V7__reminders_plans_projects.sql
+                V8__integrations.sql
         test/
           java/
             com/notebook/api/
@@ -690,13 +692,13 @@ notebook/
 
 - Backend: `auth`, `workspace`, `shared.infrastructure.security`.
 - Frontend: `features/auth`, `features/workspace`.
-- Database: `V2__auth_workspace.sql`.
+- Database: `V3__auth_accounts.sql`, `V4__workspace_contexts.sql`.
 
 **Notebook Core (FR-5 to FR-8):**
 
 - Backend: `notes`.
 - Frontend: `features/notes`, `features/notes/editor`.
-- Database: `V3__notes.sql`.
+- Database: `V5__notes.sql`.
 
 **AI Memory Search (FR-9 to FR-11):**
 
@@ -708,19 +710,19 @@ notebook/
 
 - Backend: `ai`.
 - Frontend: `features/assistant`.
-- Database: `V4__ai_actions.sql`.
+- Database: `V6__ai_actions.sql`.
 
 **Google Calendar, Gmail, Reminders, And Planning (FR-16 to FR-19):**
 
 - Backend: `integrations`, `reminders`, `plans`.
 - Frontend: `features/integrations`, `features/reminders`, `features/plans`.
-- Database: `V5__reminders_plans_projects.sql`, `V6__integrations.sql`.
+- Database: `V7__reminders_plans_projects.sql`, `V8__integrations.sql`.
 
 **Business-Lite Project History (FR-20 to FR-21):**
 
 - Backend: `projects`, `workspace`.
 - Frontend: `features/projects`, `features/workspace`.
-- Database: `V5__reminders_plans_projects.sql`.
+- Database: `V7__reminders_plans_projects.sql`.
 
 **Production Quality Layer (FR-22 to FR-24):**
 
