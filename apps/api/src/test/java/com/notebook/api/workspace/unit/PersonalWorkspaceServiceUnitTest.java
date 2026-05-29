@@ -9,10 +9,10 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import com.notebook.api.auth.domain.AuthAccount;
 import com.notebook.api.workspace.application.PersonalWorkspaceService;
 import com.notebook.api.workspace.application.WorkspaceSession;
 import com.notebook.api.workspace.domain.WorkspaceContext;
@@ -29,14 +29,14 @@ class PersonalWorkspaceServiceUnitTest {
 
 	@Test
 	void createsPersonalWorkspaceAndOwnerMembershipWhenMissing() {
-		AuthAccount account = AuthAccount.create("google", "subject", Instant.now());
-		when(this.workspaces.findByOwnerAccountAndType(account, WorkspaceContextType.PERSONAL)).thenReturn(Optional.empty());
+		UUID accountId = UUID.randomUUID();
+		when(this.workspaces.findByOwnerAccountIdAndType(accountId, WorkspaceContextType.PERSONAL)).thenReturn(Optional.empty());
 		when(this.workspaces.save(any(WorkspaceContext.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(this.memberships.existsByAccountAndWorkspaceContext(any(), any())).thenReturn(false);
+		when(this.memberships.existsByAccountIdAndWorkspaceContext(any(), any())).thenReturn(false);
 		when(this.memberships.save(any(WorkspaceMembership.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(this.memberships.countByAccount(account)).thenReturn(1L);
+		when(this.memberships.countByAccountId(accountId)).thenReturn(1L);
 
-		WorkspaceSession session = this.service.ensurePersonalWorkspace(account);
+		WorkspaceSession session = this.service.ensurePersonalWorkspace(accountId);
 
 		assertThat(session.activeWorkspace().name()).isEqualTo("Personal");
 		assertThat(session.activeWorkspace().type()).isEqualTo("PERSONAL");
@@ -47,13 +47,13 @@ class PersonalWorkspaceServiceUnitTest {
 
 	@Test
 	void reusesExistingPersonalWorkspaceAndDoesNotDuplicateMembership() {
-		AuthAccount account = AuthAccount.create("google", "subject", Instant.now());
-		WorkspaceContext existing = WorkspaceContext.personalFor(account, Instant.now());
-		when(this.workspaces.findByOwnerAccountAndType(account, WorkspaceContextType.PERSONAL)).thenReturn(Optional.of(existing));
-		when(this.memberships.existsByAccountAndWorkspaceContext(account, existing)).thenReturn(true);
-		when(this.memberships.countByAccount(account)).thenReturn(1L);
+		UUID accountId = UUID.randomUUID();
+		WorkspaceContext existing = WorkspaceContext.personalFor(accountId, Instant.now());
+		when(this.workspaces.findByOwnerAccountIdAndType(accountId, WorkspaceContextType.PERSONAL)).thenReturn(Optional.of(existing));
+		when(this.memberships.existsByAccountIdAndWorkspaceContext(accountId, existing)).thenReturn(true);
+		when(this.memberships.countByAccountId(accountId)).thenReturn(1L);
 
-		WorkspaceSession session = this.service.ensurePersonalWorkspace(account);
+		WorkspaceSession session = this.service.ensurePersonalWorkspace(accountId);
 
 		assertThat(session.activeWorkspace().id()).isEqualTo(existing.getId());
 		assertThat(session.workspaceSwitcherAvailable()).isFalse();
@@ -63,13 +63,13 @@ class PersonalWorkspaceServiceUnitTest {
 
 	@Test
 	void reportsSwitcherAvailableWhenAccountHasMultipleMemberships() {
-		AuthAccount account = AuthAccount.create("google", "subject", Instant.now());
-		WorkspaceContext existing = WorkspaceContext.personalFor(account, Instant.now());
-		when(this.workspaces.findByOwnerAccountAndType(account, WorkspaceContextType.PERSONAL)).thenReturn(Optional.of(existing));
-		when(this.memberships.existsByAccountAndWorkspaceContext(account, existing)).thenReturn(true);
-		when(this.memberships.countByAccount(account)).thenReturn(2L);
+		UUID accountId = UUID.randomUUID();
+		WorkspaceContext existing = WorkspaceContext.personalFor(accountId, Instant.now());
+		when(this.workspaces.findByOwnerAccountIdAndType(accountId, WorkspaceContextType.PERSONAL)).thenReturn(Optional.of(existing));
+		when(this.memberships.existsByAccountIdAndWorkspaceContext(accountId, existing)).thenReturn(true);
+		when(this.memberships.countByAccountId(accountId)).thenReturn(2L);
 
-		WorkspaceSession session = this.service.ensurePersonalWorkspace(account);
+		WorkspaceSession session = this.service.ensurePersonalWorkspace(accountId);
 
 		assertThat(session.workspaceSwitcherAvailable()).isTrue();
 	}

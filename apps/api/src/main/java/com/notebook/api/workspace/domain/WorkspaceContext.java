@@ -3,15 +3,11 @@ package com.notebook.api.workspace.domain;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.notebook.api.auth.domain.AuthAccount;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -24,9 +20,8 @@ public class WorkspaceContext {
 	@Id
 	private UUID id;
 
-	@ManyToOne(optional = false)
-	@JoinColumn(name = "owner_account_id", nullable = false)
-	private AuthAccount ownerAccount;
+	@Column(name = "owner_account_id", nullable = false)
+	private UUID ownerAccountId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 40)
@@ -44,21 +39,29 @@ public class WorkspaceContext {
 	protected WorkspaceContext() {
 	}
 
-	private WorkspaceContext(AuthAccount ownerAccount, WorkspaceContextType type, String name, Instant now) {
+	private WorkspaceContext(UUID ownerAccountId, WorkspaceContextType type, String name, Instant now) {
 		this.id = UUID.randomUUID();
-		this.ownerAccount = ownerAccount;
+		this.ownerAccountId = ownerAccountId;
 		this.type = type;
 		this.name = name;
 		this.createdAt = now;
 		this.updatedAt = now;
 	}
 
-	public static WorkspaceContext personalFor(AuthAccount account, Instant now) {
-		return new WorkspaceContext(account, WorkspaceContextType.PERSONAL, "Personal", now);
+	public static WorkspaceContext personalFor(UUID accountId, Instant now) {
+		return new WorkspaceContext(accountId, WorkspaceContextType.PERSONAL, "Personal", now);
+	}
+
+	public static WorkspaceContext businessFor(UUID accountId, String name, Instant now) {
+		return new WorkspaceContext(accountId, WorkspaceContextType.BUSINESS, name.trim(), now);
 	}
 
 	public UUID getId() {
 		return this.id;
+	}
+
+	public UUID getOwnerAccountId() {
+		return this.ownerAccountId;
 	}
 
 	public WorkspaceContextType getType() {

@@ -2,8 +2,6 @@ package com.notebook.api.auth.application;
 
 import java.util.UUID;
 
-import com.notebook.api.workspace.application.WorkspaceSession.WorkspaceSummary;
-
 public record CurrentSession(
 		boolean authenticated,
 		AccountSummary account,
@@ -25,6 +23,13 @@ public record CurrentSession(
 			String email,
 			String displayName,
 			String avatarUrl
+	) {
+	}
+
+	public record WorkspaceSummary(
+			UUID id,
+			String name,
+			String type
 	) {
 	}
 }

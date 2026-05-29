@@ -7,18 +7,16 @@ import org.springframework.stereotype.Service;
 
 import com.notebook.api.auth.application.CurrentSession.AccountSummary;
 import com.notebook.api.auth.domain.AuthAccount;
-import com.notebook.api.workspace.application.PersonalWorkspaceService;
-import com.notebook.api.workspace.application.WorkspaceSession;
 
 @Service
 public class CurrentSessionService {
 
 	private final AuthAccountService accountService;
-	private final PersonalWorkspaceService personalWorkspaces;
+	private final WorkspaceSessionLookup workspaceSessions;
 
-	public CurrentSessionService(AuthAccountService accountService, PersonalWorkspaceService personalWorkspaces) {
+	public CurrentSessionService(AuthAccountService accountService, WorkspaceSessionLookup workspaceSessions) {
 		this.accountService = accountService;
-		this.personalWorkspaces = personalWorkspaces;
+		this.workspaceSessions = workspaceSessions;
 	}
 
 	public CurrentSession currentSession(Authentication authentication) {
@@ -29,7 +27,7 @@ public class CurrentSessionService {
 
 		if (authentication.getPrincipal() instanceof OAuth2User) {
 			AuthAccount account = this.accountService.createOrUpdateFrom(authentication);
-			WorkspaceSession workspace = this.personalWorkspaces.ensurePersonalWorkspace(account);
+			WorkspaceSessionLookup.WorkspaceSession workspace = this.workspaceSessions.activeWorkspaceFor(account.getId());
 			return CurrentSession.authenticated(
 					new AccountSummary(
 							account.getId(),

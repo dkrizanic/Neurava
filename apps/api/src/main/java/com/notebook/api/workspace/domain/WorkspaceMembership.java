@@ -3,8 +3,6 @@ package com.notebook.api.workspace.domain;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.notebook.api.auth.domain.AuthAccount;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -25,9 +23,8 @@ public class WorkspaceMembership {
 	@Id
 	private UUID id;
 
-	@ManyToOne(optional = false)
-	@JoinColumn(name = "account_id", nullable = false)
-	private AuthAccount account;
+	@Column(name = "account_id", nullable = false)
+	private UUID accountId;
 
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "workspace_context_id", nullable = false)
@@ -43,15 +40,19 @@ public class WorkspaceMembership {
 	protected WorkspaceMembership() {
 	}
 
-	private WorkspaceMembership(AuthAccount account, WorkspaceContext workspaceContext, WorkspaceRole role, Instant now) {
+	private WorkspaceMembership(UUID accountId, WorkspaceContext workspaceContext, WorkspaceRole role, Instant now) {
 		this.id = UUID.randomUUID();
-		this.account = account;
+		this.accountId = accountId;
 		this.workspaceContext = workspaceContext;
 		this.role = role;
 		this.createdAt = now;
 	}
 
-	public static WorkspaceMembership owner(AuthAccount account, WorkspaceContext workspaceContext, Instant now) {
-		return new WorkspaceMembership(account, workspaceContext, WorkspaceRole.OWNER, now);
+	public static WorkspaceMembership owner(UUID accountId, WorkspaceContext workspaceContext, Instant now) {
+		return new WorkspaceMembership(accountId, workspaceContext, WorkspaceRole.OWNER, now);
+	}
+
+	public WorkspaceContext getWorkspaceContext() {
+		return this.workspaceContext;
 	}
 }

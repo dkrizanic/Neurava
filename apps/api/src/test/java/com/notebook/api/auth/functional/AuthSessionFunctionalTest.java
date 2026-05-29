@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -88,5 +89,49 @@ class AuthSessionFunctionalTest {
 		String secondWorkspaceId = secondResponse.replaceAll(".*\"activeWorkspace\"\\s*:\\s*\\{\\s*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
 
 		org.assertj.core.api.Assertions.assertThat(secondWorkspaceId).isEqualTo(firstWorkspaceId);
+	}
+
+	@Test
+	void companyRegistrationMakesWorkspaceSwitcherAvailable() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/workspaces/companies")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Acme Labs\"}")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "company-owner-subject");
+							attributes.put("email", "owner@example.com");
+							attributes.put("name", "Company Owner");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.company.id").exists())
+				.andExpect(jsonPath("$.company.name").value("Acme Labs"))
+				.andExpect(jsonPath("$.businessWorkspace.id").exists())
+				.andExpect(jsonPath("$.businessWorkspace.name").value("Acme Labs"))
+				.andExpect(jsonPath("$.businessWorkspace.type").value("BUSINESS"));
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/auth/session")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "company-owner-subject");
+							attributes.put("email", "owner@example.com");
+							attributes.put("name", "Company Owner");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.activeWorkspace.type").value("PERSONAL"))
+				.andExpect(jsonPath("$.workspaceSwitcherAvailable").value(true));
+	}
+
+	@Test
+	void companyRegistrationValidatesCompanyName() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/workspaces/companies")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"\"}")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "invalid-company-subject");
+							attributes.put("email", "invalid@example.com");
+						})))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Validation failed"))
+				.andExpect(jsonPath("$.errors[0].field").value("name"));
 	}
 }

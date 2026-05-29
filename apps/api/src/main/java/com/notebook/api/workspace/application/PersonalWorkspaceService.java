@@ -1,11 +1,11 @@
 package com.notebook.api.workspace.application;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.notebook.api.auth.domain.AuthAccount;
 import com.notebook.api.workspace.domain.WorkspaceContext;
 import com.notebook.api.workspace.domain.WorkspaceContextType;
 import com.notebook.api.workspace.domain.WorkspaceMembership;
@@ -24,15 +24,15 @@ public class PersonalWorkspaceService {
 	}
 
 	@Transactional
-	public WorkspaceSession ensurePersonalWorkspace(AuthAccount account) {
+	public WorkspaceSession ensurePersonalWorkspace(UUID accountId) {
 		Instant now = Instant.now();
-		WorkspaceContext workspace = this.workspaces.findByOwnerAccountAndType(account, WorkspaceContextType.PERSONAL)
-				.orElseGet(() -> this.workspaces.save(WorkspaceContext.personalFor(account, now)));
+		WorkspaceContext workspace = this.workspaces.findByOwnerAccountIdAndType(accountId, WorkspaceContextType.PERSONAL)
+				.orElseGet(() -> this.workspaces.save(WorkspaceContext.personalFor(accountId, now)));
 
-		if (!this.memberships.existsByAccountAndWorkspaceContext(account, workspace)) {
-			this.memberships.save(WorkspaceMembership.owner(account, workspace, now));
+		if (!this.memberships.existsByAccountIdAndWorkspaceContext(accountId, workspace)) {
+			this.memberships.save(WorkspaceMembership.owner(accountId, workspace, now));
 		}
 
-		return WorkspaceSession.personal(workspace, this.memberships.countByAccount(account) > 1);
+		return WorkspaceSession.personal(workspace, this.memberships.countByAccountId(accountId) > 1);
 	}
 }

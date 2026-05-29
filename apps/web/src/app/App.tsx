@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Bell, Bot, CalendarRange, FileText, FolderKanban, Plug, Search, Settings } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { AuthStatus } from '../features/auth/components/AuthStatus';
 import { useAuth } from '../features/auth/hooks/useAuth';
+import { WorkspaceSettingsDialog } from '../features/workspace/components/WorkspaceSettingsDialog';
 import { sections, type SectionId } from './sections';
 
 const navIcons: Record<SectionId, typeof FileText> = {
@@ -16,6 +18,7 @@ const navIcons: Record<SectionId, typeof FileText> = {
 
 export function App() {
   const { activeWorkspace } = useAuth();
+  const [workspaceSettingsOpen, setWorkspaceSettingsOpen] = useState(false);
 
   return (
     <main className="app-shell">
@@ -57,7 +60,12 @@ export function App() {
           </div>
           <div className="workspace-actions">
             <AuthStatus />
-            <button className="icon-button" type="button" aria-label="Open workspace settings">
+            <button
+              className="icon-button"
+              onClick={() => setWorkspaceSettingsOpen(true)}
+              type="button"
+              aria-label="Open workspace settings"
+            >
               <Settings aria-hidden="true" size={20} />
             </button>
           </div>
@@ -67,6 +75,7 @@ export function App() {
           <Outlet />
         </div>
       </section>
+      <WorkspaceSettingsDialog onClose={() => setWorkspaceSettingsOpen(false)} open={workspaceSettingsOpen} />
     </main>
   );
 }

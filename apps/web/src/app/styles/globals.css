@@ -381,6 +381,37 @@ p {
   padding: 12px 14px;
 }
 
+.workspace-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.workspace-settings__form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workspace-settings__notice,
+.workspace-settings__success {
+  border-radius: 8px;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.workspace-settings__notice {
+  background: #f8fafc;
+  border: 1px solid #d9e1ea;
+  color: #526173;
+}
+
+.workspace-settings__success {
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  color: #067647;
+}
+
 .field {
   display: grid;
   gap: 7px;
@@ -559,6 +590,10 @@ p {
 
   .overview-hero {
     padding: 20px;
+  }
+
+  .workspace-settings__form {
+    grid-template-columns: 1fr;
   }
 
   .route-heading h2,

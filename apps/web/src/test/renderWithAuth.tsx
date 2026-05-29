@@ -11,6 +11,7 @@ type AuthRenderOptions = {
   error?: string | null;
   initialPath?: string;
   isLoading?: boolean;
+  refresh?: () => Promise<void>;
   signIn?: () => void;
   signOut?: () => Promise<void>;
   workspaceSwitcherAvailable?: boolean;
@@ -25,7 +26,7 @@ export function renderWithAuth(ui: ReactElement, options: AuthRenderOptions = {}
         authenticated: options.authenticated ?? false,
         error: options.error ?? null,
         isLoading: options.isLoading ?? false,
-        refresh: async () => undefined,
+        refresh: options.refresh ?? (async () => undefined),
         signIn: options.signIn ?? (() => undefined),
         signOut: options.signOut ?? (async () => undefined),
         workspaceSwitcherAvailable: options.workspaceSwitcherAvailable ?? false,

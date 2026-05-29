@@ -1,7 +1,9 @@
 package com.notebook.api.auth.application;
 
 import java.time.Instant;
+import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -17,9 +19,11 @@ public class AuthAccountService {
 	private static final String GOOGLE_PROVIDER = "google";
 
 	private final AuthAccountRepository accounts;
+	private final ApplicationEventPublisher events;
 
-	public AuthAccountService(AuthAccountRepository accounts) {
+	public AuthAccountService(AuthAccountRepository accounts, ApplicationEventPublisher events) {
 		this.accounts = accounts;
+		this.events = events;
 	}
 
 	@Transactional
@@ -37,7 +41,14 @@ public class AuthAccountService {
 		AuthAccount account = this.accounts.findByProviderAndProviderSubject(GOOGLE_PROVIDER, subject)
 				.orElseGet(() -> AuthAccount.create(GOOGLE_PROVIDER, subject, now));
 		account.updateProfile(attribute(oauthUser, "email"), attribute(oauthUser, "name"), attribute(oauthUser, "picture"), now);
-		return this.accounts.save(account);
+		AuthAccount saved = this.accounts.save(account);
+		this.events.publishEvent(new AccountAuthenticatedEvent(saved.getId(), saved.getEmail(), saved.getDisplayName()));
+		return saved;
+	}
+
+	@Transactional
+	public UUID createOrUpdateAccountIdFrom(Authentication authentication) {
+		return createOrUpdateFrom(authentication).getId();
 	}
 
 	private static String subjectFor(OAuth2User user) {

@@ -11,17 +11,20 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import com.notebook.api.auth.application.AuthAccountService;
+import com.notebook.api.auth.application.AccountAuthenticatedEvent;
 import com.notebook.api.auth.domain.AuthAccount;
 import com.notebook.api.auth.infrastructure.persistence.AuthAccountRepository;
 
 class AuthAccountServiceUnitTest {
 
 	private final AuthAccountRepository accounts = mock(AuthAccountRepository.class);
-	private final AuthAccountService service = new AuthAccountService(this.accounts);
+	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+	private final AuthAccountService service = new AuthAccountService(this.accounts, this.events);
 
 	@Test
 	void createsGoogleAccountFromOauthPrincipal() {
@@ -43,6 +46,10 @@ class AuthAccountServiceUnitTest {
 		assertThat(account.getDisplayName()).isEqualTo("Dario Notebook");
 		assertThat(account.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
 		verify(this.accounts).save(account);
+		ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+		verify(this.events).publishEvent(event.capture());
+		assertThat(event.getValue()).isInstanceOf(AccountAuthenticatedEvent.class);
+		assertThat(((AccountAuthenticatedEvent) event.getValue()).accountId()).isEqualTo(account.getId());
 	}
 
 	@Test
