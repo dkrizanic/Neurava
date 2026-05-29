@@ -33,6 +33,24 @@ public class Note {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "archived_at")
+	private Instant archivedAt;
+
+	@Column(nullable = false, length = 512)
+	private String tags = "";
+
+	@Column(nullable = false)
+	private boolean favorite;
+
+	@Column(nullable = false)
+	private boolean pinned;
+
+	@Column(name = "editor_mode", nullable = false, length = 40)
+	private String editorMode = EditorMode.RICH_TEXT.name();
+
+	@Column(name = "linked_resources", nullable = false, length = 1024)
+	private String linkedResources = "";
+
 	protected Note() {
 	}
 
@@ -53,6 +71,26 @@ public class Note {
 	public void update(String title, String body, Instant now) {
 		this.title = title.trim();
 		this.body = body == null ? "" : body;
+		this.updatedAt = now;
+	}
+
+	public void organize(String tags, boolean favorite, boolean pinned, EditorMode editorMode, String linkedResources,
+			Instant now) {
+		this.tags = tags == null ? "" : tags.trim();
+		this.favorite = favorite;
+		this.pinned = pinned;
+		this.editorMode = editorMode.name();
+		this.linkedResources = linkedResources == null ? "" : linkedResources.trim();
+		this.updatedAt = now;
+	}
+
+	public void archive(Instant now) {
+		this.archivedAt = now;
+		this.updatedAt = now;
+	}
+
+	public void restore(Instant now) {
+		this.archivedAt = null;
 		this.updatedAt = now;
 	}
 
@@ -82,5 +120,29 @@ public class Note {
 
 	public Instant getUpdatedAt() {
 		return this.updatedAt;
+	}
+
+	public Instant getArchivedAt() {
+		return this.archivedAt;
+	}
+
+	public String getTags() {
+		return this.tags;
+	}
+
+	public boolean isFavorite() {
+		return this.favorite;
+	}
+
+	public boolean isPinned() {
+		return this.pinned;
+	}
+
+	public String getEditorMode() {
+		return this.editorMode;
+	}
+
+	public String getLinkedResources() {
+		return this.linkedResources;
 	}
 }

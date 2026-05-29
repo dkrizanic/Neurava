@@ -1,9 +1,9 @@
-import { FileText, Plus } from 'lucide-react';
+import { Archive, FileText, Plus, RotateCcw, Star } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
-import { createNote, fetchNotes, updateNote } from '../api/notesApi';
+import { archiveNote, createNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
 import type { Note } from '../types';
 
 type SaveState = {
@@ -17,6 +17,7 @@ export function NotesPage() {
   const notesRef = useRef<Note[]>([]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
+  const [filters, setFilters] = useState({ archived: false, favorite: false, pinned: false, q: '', tag: '' });
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,13 +42,13 @@ export function NotesPage() {
     setIsLoading(true);
     setError(null);
 
-    fetchNotes(controller.signal)
+    fetchNotes(filters, controller.signal)
       .then(setNotes)
       .catch(() => setError('Notes could not be loaded.'))
       .finally(() => setIsLoading(false));
 
     return () => controller.abort();
-  }, [authenticated, activeWorkspace?.id]);
+  }, [authenticated, activeWorkspace?.id, filters.archived, filters.favorite, filters.pinned, filters.q, filters.tag]);
 
   async function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +75,47 @@ export function NotesPage() {
       setError('Note could not be saved.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function updateOrganization(note: Note, patch: Partial<Pick<Note, 'editorMode' | 'favorite' | 'linkedResources' | 'pinned' | 'tags'>>) {
+    const draft = { ...note, ...patch };
+    setNotes((current) => current.map((item) => (item.id === note.id ? draft : item)));
+    setSaveStates((current) => ({
+      ...current,
+      [note.id]: { message: 'Saving', status: 'saving' },
+    }));
+
+    try {
+      const saved = await organizeNote(note.id, {
+        editorMode: draft.editorMode,
+        favorite: draft.favorite,
+        linkedResources: draft.linkedResources,
+        pinned: draft.pinned,
+        tags: draft.tags,
+      });
+      setNotes((current) => current.map((item) => (item.id === saved.id ? saved : item)));
+      setSaveStates((current) => ({
+        ...current,
+        [saved.id]: { message: 'Saved', status: 'saved' },
+      }));
+    } catch {
+      setSaveStates((current) => ({
+        ...current,
+        [note.id]: { message: 'Save failed', status: 'error' },
+      }));
+    }
+  }
+
+  async function toggleArchive(note: Note) {
+    try {
+      const saved = note.archivedAt ? await restoreNote(note.id) : await archiveNote(note.id);
+      setNotes((current) => current.filter((item) => item.id !== saved.id));
+    } catch {
+      setSaveStates((current) => ({
+        ...current,
+        [note.id]: { message: 'Save failed', status: 'error' },
+      }));
     }
   }
 
@@ -157,6 +199,47 @@ export function NotesPage() {
         <h2>Notes</h2>
       </header>
 
+      <section className="note-filters" aria-label="Note filters">
+        <Field
+          label="Search"
+          name="note-search"
+          onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
+          placeholder="Search title or body"
+          value={filters.q}
+        />
+        <Field
+          label="Tag"
+          name="note-tag-filter"
+          onChange={(event) => setFilters((current) => ({ ...current, tag: event.target.value }))}
+          placeholder="planning"
+          value={filters.tag}
+        />
+        <label className="check-control">
+          <input
+            checked={filters.favorite}
+            onChange={(event) => setFilters((current) => ({ ...current, favorite: event.target.checked }))}
+            type="checkbox"
+          />
+          Favorites
+        </label>
+        <label className="check-control">
+          <input
+            checked={filters.pinned}
+            onChange={(event) => setFilters((current) => ({ ...current, pinned: event.target.checked }))}
+            type="checkbox"
+          />
+          Pinned
+        </label>
+        <label className="check-control">
+          <input
+            checked={filters.archived}
+            onChange={(event) => setFilters((current) => ({ ...current, archived: event.target.checked }))}
+            type="checkbox"
+          />
+          Archived
+        </label>
+      </section>
+
       <form className="note-composer" onSubmit={submitNote}>
         <Field
           error={error && !title.trim() ? error : undefined}
@@ -191,7 +274,7 @@ export function NotesPage() {
         <EmptyState
           description="Create the first note for this workspace."
           icon={<FileText aria-hidden="true" size={24} />}
-          title="No notes yet"
+          title={filters.q || filters.tag || filters.favorite || filters.pinned || filters.archived ? 'No matching notes' : 'No notes yet'}
         />
       ) : null}
 
@@ -219,10 +302,69 @@ export function NotesPage() {
                   value={note.body}
                 />
               </label>
+              <div className="note-card__tools">
+                <Field
+                  aria-label={`Tags for ${note.title || 'Untitled note'}`}
+                  label="Tags"
+                  name={`note-tags-${note.id}`}
+                  onBlur={() => void updateOrganization(note, { tags: note.tags })}
+                  onChange={(event) => setNotes((current) => current.map((item) => (
+                    item.id === note.id ? { ...item, tags: event.target.value } : item
+                  )))}
+                  placeholder="planning, work"
+                  value={note.tags}
+                />
+                <label className="field" htmlFor={`note-mode-${note.id}`}>
+                  <span className="field__label">Mode</span>
+                  <select
+                    id={`note-mode-${note.id}`}
+                    onChange={(event) => void updateOrganization(note, { editorMode: event.target.value as Note['editorMode'] })}
+                    value={note.editorMode}
+                  >
+                    <option value="RICH_TEXT">Rich text - meeting notes and structured ideas</option>
+                    <option value="MARKDOWN">Markdown - headings, lists, and technical notes</option>
+                    <option value="JOURNAL">Journal - reflective personal notes</option>
+                  </select>
+                </label>
+                <Field
+                  aria-label={`Linked resources for ${note.title || 'Untitled note'}`}
+                  label="Links"
+                  name={`note-links-${note.id}`}
+                  onBlur={() => void updateOrganization(note, { linkedResources: note.linkedResources })}
+                  onChange={(event) => setNotes((current) => current.map((item) => (
+                    item.id === note.id ? { ...item, linkedResources: event.target.value } : item
+                  )))}
+                  placeholder="PLAN:123, PROJECT:abc"
+                  value={note.linkedResources}
+                />
+              </div>
               <div className="note-card__meta">
                 <span className={`save-status save-status--${saveStates[note.id]?.status ?? 'idle'}`} role="status">
                   {saveStates[note.id]?.message ?? 'Saved'}
                 </span>
+                <div className="note-card__actions">
+                  <Button
+                    aria-label={note.favorite ? 'Remove favorite' : 'Mark favorite'}
+                    icon={<Star aria-hidden="true" size={16} />}
+                    onClick={() => void updateOrganization(note, { favorite: !note.favorite })}
+                    variant={note.favorite ? 'primary' : 'secondary'}
+                  >
+                    Favorite
+                  </Button>
+                  <Button
+                    onClick={() => void updateOrganization(note, { pinned: !note.pinned })}
+                    variant={note.pinned ? 'primary' : 'secondary'}
+                  >
+                    {note.pinned ? 'Pinned' : 'Pin'}
+                  </Button>
+                  <Button
+                    icon={note.archivedAt ? <RotateCcw aria-hidden="true" size={16} /> : <Archive aria-hidden="true" size={16} />}
+                    onClick={() => void toggleArchive(note)}
+                    variant="secondary"
+                  >
+                    {note.archivedAt ? 'Restore' : 'Archive'}
+                  </Button>
+                </div>
                 <time dateTime={note.updatedAt}>{new Date(note.updatedAt).toLocaleString()}</time>
               </div>
             </article>

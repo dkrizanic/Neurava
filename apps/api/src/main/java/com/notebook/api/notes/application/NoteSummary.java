@@ -12,7 +12,13 @@ public record NoteSummary(
 		String title,
 		String body,
 		Instant createdAt,
-		Instant updatedAt
+		Instant updatedAt,
+		Instant archivedAt,
+		String tags,
+		boolean favorite,
+		boolean pinned,
+		String editorMode,
+		String linkedResources
 ) {
 
 	public static NoteSummary from(Note note) {
@@ -23,6 +29,12 @@ public record NoteSummary(
 				note.getTitle(),
 				note.getBody(),
 				note.getCreatedAt(),
-				note.getUpdatedAt());
+				note.getUpdatedAt(),
+				note.getArchivedAt(),
+				note.getTags(),
+				note.isFavorite(),
+				note.isPinned(),
+				note.getEditorMode(),
+				note.getLinkedResources());
 	}
 }

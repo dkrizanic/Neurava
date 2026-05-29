@@ -13,7 +13,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.notebook.api.notes.application.NoteService;
+import com.notebook.api.notes.application.NoteService.NoteFilters;
 import com.notebook.api.notes.application.NoteSummary;
+import com.notebook.api.notes.domain.EditorMode;
 import com.notebook.api.notes.domain.Note;
 import com.notebook.api.notes.infrastructure.persistence.NoteRepository;
 
@@ -45,7 +47,7 @@ class NoteServiceUnitTest {
 		Note older = Note.create(UUID.randomUUID(), workspaceContextId, "Older", "", Instant.now());
 		when(this.notes.findByWorkspaceContextIdOrderByUpdatedAtDesc(workspaceContextId)).thenReturn(List.of(newest, older));
 
-		List<NoteSummary> results = this.service.list(workspaceContextId);
+		List<NoteSummary> results = this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, false));
 
 		assertThat(results).extracting(NoteSummary::title).containsExactly("Newest", "Older");
 	}
@@ -62,5 +64,29 @@ class NoteServiceUnitTest {
 		assertThat(updated.title()).isEqualTo("After");
 		assertThat(updated.body()).isEqualTo("New body");
 		assertThat(updated.updatedAt()).isAfter(updated.createdAt());
+	}
+
+	@Test
+	void archivesRestoresAndFiltersNotes() {
+		UUID workspaceContextId = UUID.randomUUID();
+		Note active = Note.create(UUID.randomUUID(), workspaceContextId, "Active", "Search body", Instant.EPOCH);
+		Note archived = Note.create(UUID.randomUUID(), workspaceContextId, "Archived", "", Instant.EPOCH);
+		archived.archive(Instant.now());
+		when(this.notes.findByWorkspaceContextIdOrderByUpdatedAtDesc(workspaceContextId)).thenReturn(List.of(archived, active));
+		when(this.notes.findByIdAndWorkspaceContextId(active.getId(), workspaceContextId)).thenReturn(Optional.of(active));
+
+		NoteSummary organized = this.service.organize(active.getId(), workspaceContextId, "planning,work", true, true,
+				EditorMode.MARKDOWN, "PLAN:123");
+
+		assertThat(organized.tags()).isEqualTo("planning,work");
+		assertThat(organized.favorite()).isTrue();
+		assertThat(organized.pinned()).isTrue();
+		assertThat(organized.editorMode()).isEqualTo("MARKDOWN");
+		assertThat(this.service.list(workspaceContextId, new NoteFilters("search", "planning", true, true, false)))
+				.extracting(NoteSummary::title)
+				.containsExactly("Active");
+		assertThat(this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, true)))
+				.extracting(NoteSummary::title)
+				.containsExactly("Archived");
 	}
 }

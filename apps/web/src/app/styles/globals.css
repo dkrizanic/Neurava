@@ -24,6 +24,7 @@ a {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -437,6 +438,36 @@ p {
   width: 100%;
 }
 
+.field select {
+  background: #ffffff;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  color: #17202a;
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.note-filters {
+  align-items: end;
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.7fr) repeat(3, auto);
+  padding: 14px;
+}
+
+.check-control {
+  align-items: center;
+  color: #334155;
+  display: inline-flex;
+  font-weight: 760;
+  gap: 8px;
+  min-height: 42px;
+}
+
 .field textarea {
   background: #ffffff;
   border: 1px solid #cfd8e3;
@@ -483,6 +514,19 @@ p {
   display: flex;
   gap: 12px;
   justify-content: space-between;
+}
+
+.note-card__tools {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.note-card__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .note-card time {
@@ -662,7 +706,9 @@ p {
   .overview-hero,
   .section-grid,
   .status-grid,
-  .notes-list {
+  .notes-list,
+  .note-filters,
+  .note-card__tools {
     grid-template-columns: 1fr;
   }
 

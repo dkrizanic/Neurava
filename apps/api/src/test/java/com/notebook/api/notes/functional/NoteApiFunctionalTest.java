@@ -123,4 +123,66 @@ class NoteApiFunctionalTest {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.errors[0].field").value("title"));
 	}
+
+	@Test
+	void signedInUserOrganizesArchivesRestoresAndFiltersNotes() throws Exception {
+		String response = this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"title\":\"Organized\",\"body\":\"Project planning details\"}")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		String noteId = response.replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+		this.mockMvc.perform(patch(ApiPaths.API_V1 + "/notes/" + noteId + "/organization")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"tags\":\"planning,work\",\"favorite\":true,\"pinned\":true,\"editorMode\":\"MARKDOWN\",\"linkedResources\":\"PLAN:123\"}")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.tags").value("planning,work"))
+				.andExpect(jsonPath("$.favorite").value(true))
+				.andExpect(jsonPath("$.pinned").value(true))
+				.andExpect(jsonPath("$.editorMode").value("MARKDOWN"))
+				.andExpect(jsonPath("$.linkedResources").value("PLAN:123"));
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes?q=planning&tag=work&favorite=true&pinned=true")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].id").value(noteId));
+
+		this.mockMvc.perform(patch(ApiPaths.API_V1 + "/notes/" + noteId + "/archive")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.archivedAt").exists());
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes?archived=true")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].id").value(noteId));
+
+		this.mockMvc.perform(patch(ApiPaths.API_V1 + "/notes/" + noteId + "/restore")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "organize-note-user");
+							attributes.put("email", "organize-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.archivedAt").doesNotExist());
+	}
 }
