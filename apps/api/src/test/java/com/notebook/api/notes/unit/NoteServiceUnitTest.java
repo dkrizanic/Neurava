@@ -2,6 +2,7 @@ package com.notebook.api.notes.unit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -11,7 +12,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
+import com.notebook.api.notes.application.NoteContentChangedEvent;
 import com.notebook.api.notes.application.NoteService;
 import com.notebook.api.notes.application.NoteService.NoteFilters;
 import com.notebook.api.notes.application.NoteSummary;
@@ -22,7 +26,8 @@ import com.notebook.api.notes.infrastructure.persistence.NoteRepository;
 class NoteServiceUnitTest {
 
 	private final NoteRepository notes = mock(NoteRepository.class);
-	private final NoteService service = new NoteService(this.notes);
+	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+	private final NoteService service = new NoteService(this.notes, this.events);
 
 	@Test
 	void createsNoteWithOwnerAndWorkspaceMetadata() {
@@ -38,6 +43,10 @@ class NoteServiceUnitTest {
 		assertThat(note.body()).isEqualTo("Body");
 		assertThat(note.createdAt()).isNotNull();
 		assertThat(note.updatedAt()).isNotNull();
+		ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+		verify(this.events).publishEvent(event.capture());
+		assertThat(event.getValue()).isInstanceOf(NoteContentChangedEvent.class);
+		assertThat(((NoteContentChangedEvent) event.getValue()).workspaceContextId()).isEqualTo(workspaceContextId);
 	}
 
 	@Test
@@ -64,6 +73,7 @@ class NoteServiceUnitTest {
 		assertThat(updated.title()).isEqualTo("After");
 		assertThat(updated.body()).isEqualTo("New body");
 		assertThat(updated.updatedAt()).isAfter(updated.createdAt());
+		verify(this.events).publishEvent(any(NoteContentChangedEvent.class));
 	}
 
 	@Test

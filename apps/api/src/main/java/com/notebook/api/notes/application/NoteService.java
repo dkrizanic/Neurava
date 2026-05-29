@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,15 +19,19 @@ import com.notebook.api.notes.infrastructure.persistence.NoteRepository;
 public class NoteService {
 
 	private final NoteRepository notes;
+	private final ApplicationEventPublisher events;
 
-	public NoteService(NoteRepository notes) {
+	public NoteService(NoteRepository notes, ApplicationEventPublisher events) {
 		this.notes = notes;
+		this.events = events;
 	}
 
 	@Transactional
 	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body) {
 		Note note = Note.create(ownerAccountId, workspaceContextId, title, body, Instant.now());
-		return NoteSummary.from(this.notes.save(note));
+		Note saved = this.notes.save(note);
+		publishContentChanged(saved);
+		return NoteSummary.from(saved);
 	}
 
 	@Transactional(readOnly = true)
@@ -42,6 +47,7 @@ public class NoteService {
 		Note note = this.notes.findByIdAndWorkspaceContextId(noteId, workspaceContextId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found."));
 		note.update(title, body, Instant.now());
+		publishContentChanged(note);
 		return NoteSummary.from(note);
 	}
 
@@ -70,6 +76,16 @@ public class NoteService {
 	private Note findWorkspaceNote(UUID noteId, UUID workspaceContextId) {
 		return this.notes.findByIdAndWorkspaceContextId(noteId, workspaceContextId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found."));
+	}
+
+	private void publishContentChanged(Note note) {
+		this.events.publishEvent(new NoteContentChangedEvent(
+				note.getId(),
+				note.getWorkspaceContextId(),
+				note.getOwnerAccountId(),
+				note.getTitle(),
+				note.getBody(),
+				note.getUpdatedAt()));
 	}
 
 	public record NoteFilters(
