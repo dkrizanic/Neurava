@@ -1,4 +1,4 @@
-package com.notebook.api.memory.unit;
+package com.notebook.api.ai.unit;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -9,8 +9,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import com.notebook.api.memory.application.NoteRetrievalIndexListener;
-import com.notebook.api.memory.application.NoteRetrievalIndexingService;
+import com.notebook.api.ai.application.NoteRetrievalIndexListener;
+import com.notebook.api.ai.application.NoteRetrievalIndexingService;
 import com.notebook.api.notes.application.NoteContentChangedEvent;
 
 class NoteRetrievalIndexListenerUnitTest {

@@ -1,4 +1,4 @@
-package com.notebook.api.memory.domain;
+package com.notebook.api.ai.domain;
 
 public enum RetrievalIndexStatus {
 	INDEXED,

@@ -1,4 +1,4 @@
-package com.notebook.api.memory.infrastructure.persistence;
+package com.notebook.api.ai.infrastructure.persistence;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -6,8 +6,8 @@ import java.time.ZoneOffset;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import com.notebook.api.memory.application.NoteRetrievalIndexRecord;
-import com.notebook.api.memory.application.NoteRetrievalIndexRepository;
+import com.notebook.api.ai.application.NoteRetrievalIndexRecord;
+import com.notebook.api.ai.application.NoteRetrievalIndexRepository;
 
 @Repository
 class JdbcNoteRetrievalIndexRepository implements NoteRetrievalIndexRepository {

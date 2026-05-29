@@ -1,10 +1,10 @@
-package com.notebook.api.memory.application;
+package com.notebook.api.ai.application;
 
 import java.time.Instant;
 
 import org.springframework.stereotype.Service;
 
-import com.notebook.api.memory.domain.RetrievalIndexStatus;
+import com.notebook.api.ai.domain.RetrievalIndexStatus;
 import com.notebook.api.notes.application.NoteContentChangedEvent;
 
 @Service

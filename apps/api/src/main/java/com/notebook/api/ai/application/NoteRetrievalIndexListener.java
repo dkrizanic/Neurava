@@ -1,4 +1,4 @@
-package com.notebook.api.memory.application;
+package com.notebook.api.ai.application;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

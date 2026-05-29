@@ -1,4 +1,4 @@
-package com.notebook.api.memory.unit;
+package com.notebook.api.ai.unit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,12 +12,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import com.notebook.api.memory.application.EmbeddingGenerator;
-import com.notebook.api.memory.application.EmbeddingVector;
-import com.notebook.api.memory.application.NoteRetrievalIndexRecord;
-import com.notebook.api.memory.application.NoteRetrievalIndexRepository;
-import com.notebook.api.memory.application.NoteRetrievalIndexingService;
-import com.notebook.api.memory.domain.RetrievalIndexStatus;
+import com.notebook.api.ai.application.EmbeddingGenerator;
+import com.notebook.api.ai.application.EmbeddingVector;
+import com.notebook.api.ai.application.NoteRetrievalIndexRecord;
+import com.notebook.api.ai.application.NoteRetrievalIndexRepository;
+import com.notebook.api.ai.application.NoteRetrievalIndexingService;
+import com.notebook.api.ai.domain.RetrievalIndexStatus;
 import com.notebook.api.notes.application.NoteContentChangedEvent;
 
 class NoteRetrievalIndexingServiceUnitTest {

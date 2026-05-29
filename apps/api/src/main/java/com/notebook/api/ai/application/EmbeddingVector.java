@@ -1,4 +1,4 @@
-package com.notebook.api.memory.application;
+package com.notebook.api.ai.application;
 
 import java.util.Arrays;
 

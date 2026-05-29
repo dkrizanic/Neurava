@@ -1,4 +1,4 @@
-package com.notebook.api.memory.application;
+package com.notebook.api.ai.application;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

@@ -1,4 +1,4 @@
-package com.notebook.api.memory.functional;
+package com.notebook.api.ai.functional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
