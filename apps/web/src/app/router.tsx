@@ -10,6 +10,9 @@ const OverviewPage = lazy(() =>
 const SectionPage = lazy(() =>
   import('./routes/SectionPage').then((module) => ({ default: module.SectionPage })),
 );
+const NotesPage = lazy(() =>
+  import('../features/notes/components/NotesPage').then((module) => ({ default: module.NotesPage })),
+);
 const NotFoundPage = lazy(() =>
   import('./routes/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
 );
@@ -28,6 +31,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: withRouteLoading(<OverviewPage />),
+      },
+      {
+        element: withRouteLoading(<NotesPage />),
+        path: 'notes',
       },
       {
         element: withRouteLoading(<SectionPage />),

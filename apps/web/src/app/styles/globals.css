@@ -23,7 +23,8 @@ a {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -436,6 +437,82 @@ p {
   width: 100%;
 }
 
+.field textarea {
+  background: #ffffff;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  color: #17202a;
+  min-height: 128px;
+  padding: 10px 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.note-composer {
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.note-composer .ui-button {
+  justify-self: start;
+}
+
+.notes-list {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.note-card {
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-height: 156px;
+  padding: 18px;
+}
+
+.note-card__meta {
+  align-items: center;
+  align-self: end;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.note-card time {
+  color: #697586;
+  font-size: 0.82rem;
+}
+
+.save-status {
+  border-radius: 8px;
+  color: #697586;
+  font-size: 0.82rem;
+  font-weight: 760;
+  padding: 4px 8px;
+}
+
+.save-status--saving {
+  background: #eef6f5;
+  color: #0f766e;
+}
+
+.save-status--saved {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.save-status--error {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .field__description,
 .field__error {
   font-size: 0.88rem;
@@ -584,7 +661,8 @@ p {
   .nav-list,
   .overview-hero,
   .section-grid,
-  .status-grid {
+  .status-grid,
+  .notes-list {
     grid-template-columns: 1fr;
   }
 
