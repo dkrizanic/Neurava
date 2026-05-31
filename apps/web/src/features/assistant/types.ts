@@ -1,4 +1,5 @@
 import type { EntityId } from '../../shared/lib/ids';
+import type { MemorySearchMatch } from '../search/types';
 
 export type SourceReference = {
   id: EntityId;
@@ -29,6 +30,19 @@ export type HistorySummary = {
 };
 
 export type AssistantMode = 'answer' | 'summary';
+
+export type AssistantActionName = 'answer_question' | 'search_memory' | 'summarize_history';
+
+export type AssistantActionResultByName = {
+  answer_question: SourceAwareAnswer;
+  search_memory: MemorySearchMatch[];
+  summarize_history: HistorySummary;
+};
+
+export type AssistantActionResponse<TAction extends AssistantActionName> = {
+  action: TAction;
+  result: AssistantActionResultByName[TAction];
+};
 
 export type AssistantMessage =
   | {

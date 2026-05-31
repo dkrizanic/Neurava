@@ -233,6 +233,107 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.sources").isEmpty());
 	}
 
+	@Test
+	void assistantActionRoutesSourceAwareAnswers() throws Exception {
+		createNote("action-answer-user", "action-answer@example.com",
+				"API action decision", "We decided the assistant action API should stay typed.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"answer_question","input":{"question":"What did we decide about the assistant action API?"}}
+								""")
+						.with(user("action-answer-user", "action-answer@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.action").value("answer_question"))
+				.andExpect(jsonPath("$.result.enoughSourceContext").value(true))
+				.andExpect(jsonPath("$.result.sources[0].title").value("API action decision"));
+	}
+
+	@Test
+	void assistantActionRoutesHistorySummaries() throws Exception {
+		createNote("action-summary-user", "action-summary@example.com",
+				"Action summary", "We decided action routing is open until tests pass. Next action is to document it.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"summarize_history","input":{"topic":"action routing"}}
+								""")
+						.with(user("action-summary-user", "action-summary@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.action").value("summarize_history"))
+				.andExpect(jsonPath("$.result.enoughSourceContext").value(true))
+				.andExpect(jsonPath("$.result.sections.keyEvents[0]").value(org.hamcrest.Matchers.containsString("Action summary")))
+				.andExpect(jsonPath("$.result.sources[0].title").value("Action summary"));
+	}
+
+	@Test
+	void assistantActionRoutesWeakFragmentSearch() throws Exception {
+		createNote("action-search-user", "action-search@example.com",
+				"Action search", "The typed action router can recover weak fragments.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"search_memory","input":{"query":"typed action router"}}
+								""")
+						.with(user("action-search-user", "action-search@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.action").value("search_memory"))
+				.andExpect(jsonPath("$.result[0].sourceType").value("note"))
+				.andExpect(jsonPath("$.result[0].title").value("Action search"));
+	}
+
+	@Test
+	void assistantActionRejectsUnsupportedActionsWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"delete_notes","input":{"query":"all"}}
+								""")
+						.with(user("unsupported-action-user", "unsupported-action@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Unsupported assistant action"))
+				.andExpect(jsonPath("$.detail").value("Assistant action is not supported."))
+				.andExpect(jsonPath("$.action").value("delete_notes"));
+	}
+
+	@Test
+	void assistantActionRejectsInvalidActionInputWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"answer_question","input":{"question":"   "}}
+								""")
+						.with(user("invalid-action-user", "invalid-action@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Validation failed"))
+				.andExpect(jsonPath("$.errors[0].field").value("question"));
+	}
+
+	@Test
+	void assistantActionDoesNotUseOtherWorkspaceSources() throws Exception {
+		createNote("other-action-user", "other-action@example.com",
+				"Other action answer", "The typed action router belongs to another workspace.");
+		createNote("isolated-action-user", "isolated-action@example.com",
+				"Personal note", "Buy tea after lunch.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/actions")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"answer_question","input":{"question":"What happened with the typed action router?"}}
+								""")
+						.with(user("isolated-action-user", "isolated-action@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.action").value("answer_question"))
+				.andExpect(jsonPath("$.result.enoughSourceContext").value(false))
+				.andExpect(jsonPath("$.result.sources").isEmpty());
+	}
+
 	private void createNote(String subject, String email, String title, String body) throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)
