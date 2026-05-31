@@ -169,6 +169,70 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.sources").isEmpty());
 	}
 
+	@Test
+	void historySummaryIncludesStructuredSectionsAndSources() throws Exception {
+		createNote("summary-user", "summary@example.com",
+				"API planning",
+				"We decided to keep problem details stable. The migration risk remains open. Next action is to document the contract.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/summaries")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"topic\":\"Summarize API planning\"}")
+						.with(user("summary-user", "summary@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.enoughSourceContext").value(true))
+				.andExpect(jsonPath("$.sections.keyEvents[0]").value(org.hamcrest.Matchers.containsString("API planning")))
+				.andExpect(jsonPath("$.sections.decisions[0]").value(org.hamcrest.Matchers.containsString("decided")))
+				.andExpect(jsonPath("$.sections.unresolvedItems[0]").value(org.hamcrest.Matchers.containsString("risk")))
+				.andExpect(jsonPath("$.sections.nextActions[0]").value(org.hamcrest.Matchers.containsString("Next action")))
+				.andExpect(jsonPath("$.sources[0].type").value("note"))
+				.andExpect(jsonPath("$.sources[0].title").value("API planning"));
+	}
+
+	@Test
+	void historySummaryRejectsBlankTopicsWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/summaries")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"topic\":\"   \"}")
+						.with(user("blank-summary-user", "blank-summary@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Validation failed"))
+				.andExpect(jsonPath("$.errors[0].field").value("topic"));
+	}
+
+	@Test
+	void historySummaryIndicatesInsufficientContextWhenNoSourcesMatch() throws Exception {
+		createNote("insufficient-summary-user", "insufficient-summary@example.com",
+				"Garden notes", "Tomatoes need watering after lunch.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/summaries")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"topic\":\"quarterly budget\"}")
+						.with(user("insufficient-summary-user", "insufficient-summary@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.enoughSourceContext").value(false))
+				.andExpect(jsonPath("$.sections.keyEvents[0]").value(org.hamcrest.Matchers.containsString("Not enough source context")))
+				.andExpect(jsonPath("$.sources").isEmpty());
+	}
+
+	@Test
+	void historySummaryDoesNotUseOtherWorkspaceSources() throws Exception {
+		createNote("other-summary-user", "other-summary@example.com",
+				"Other API summary", "We decided the API problem in another workspace.");
+		createNote("isolated-summary-user", "isolated-summary@example.com",
+				"Personal errand", "Buy tea after lunch.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/summaries")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"topic\":\"API problem\"}")
+						.with(user("isolated-summary-user", "isolated-summary@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.enoughSourceContext").value(false))
+				.andExpect(jsonPath("$.sources").isEmpty());
+	}
+
 	private void createNote(String subject, String email, String title, String body) throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)

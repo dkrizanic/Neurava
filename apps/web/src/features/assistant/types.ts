@@ -14,3 +14,16 @@ export type SourceAwareAnswer = {
   enoughSourceContext: boolean;
   sources: SourceReference[];
 };
+
+export type SummarySections = {
+  decisions: string[];
+  keyEvents: string[];
+  nextActions: string[];
+  unresolvedItems: string[];
+};
+
+export type HistorySummary = {
+  enoughSourceContext: boolean;
+  sections: SummarySections;
+  sources: SourceReference[];
+};

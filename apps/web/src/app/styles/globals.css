@@ -514,6 +514,13 @@ p {
   padding: 14px;
 }
 
+.assistant-mode {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .memory-results {
   display: grid;
   gap: 12px;
@@ -556,6 +563,24 @@ p {
   color: #17202a;
   font-size: 1.02rem;
   margin: 0;
+}
+
+.summary-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.summary-sections h3 {
+  color: #17202a;
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+
+.summary-sections ul {
+  color: #334155;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 20px;
 }
 
 .memory-result {
