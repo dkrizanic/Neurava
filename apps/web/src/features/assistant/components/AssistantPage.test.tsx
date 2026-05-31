@@ -41,7 +41,7 @@ describe('AssistantPage', () => {
     expect(screen.getByRole('heading', { name: /sign in to unlock your notebook/i })).toBeInTheDocument();
   });
 
-  it('renders answer text separately from source references', async () => {
+  it('keeps answer turns in session history with source references', async () => {
     const user = userEvent.setup();
     mockedAnswerQuestion.mockResolvedValue({
       answer: 'Based on the available notebook sources, the API problem used stable problem details.',
@@ -63,15 +63,15 @@ describe('AssistantPage', () => {
 
     await waitFor(() => expect(mockedAnswerQuestion).toHaveBeenCalledWith(
       'What did we decide about the API problem?',
-      expect.any(AbortSignal),
     ));
     expect(await screen.findByLabelText(/source-aware answer/i)).toHaveTextContent(/available notebook sources/i);
+    expect(screen.getByText('What did we decide about the API problem?')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /source references/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /api decision/i })).toBeInTheDocument();
     expect(screen.getByText(/93% match/i)).toBeInTheDocument();
   });
 
-  it('shows insufficient-context state without clearing the question', async () => {
+  it('shows insufficient-context answer message in history', async () => {
     const user = userEvent.setup();
     mockedAnswerQuestion.mockResolvedValue({
       answer: 'I do not have enough source context in this workspace to answer that yet.',
@@ -85,20 +85,29 @@ describe('AssistantPage', () => {
     await user.type(input, 'What happened with quarterly budget?');
     await user.click(screen.getByRole('button', { name: /ask assistant/i }));
 
-    expect(await screen.findByRole('heading', { name: /not enough source context/i })).toBeInTheDocument();
-    expect(input).toHaveValue('What happened with quarterly budget?');
+    expect(await screen.findByLabelText(/source-aware answer/i)).toHaveTextContent(/not enough source context/i);
+    expect(screen.getByText('What happened with quarterly budget?')).toBeInTheDocument();
+    expect(input).toHaveValue('');
   });
 
-  it('shows a recoverable error state when answering fails', async () => {
+  it('shows a recoverable error message and retry for failed answers', async () => {
     const user = userEvent.setup();
-    mockedAnswerQuestion.mockRejectedValue(new Error('down'));
+    mockedAnswerQuestion
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce({
+        answer: 'Based on the available notebook sources, retry worked.',
+        enoughSourceContext: true,
+        sources: [],
+      });
 
     renderWithAuth(<AssistantPage />, authSession);
 
     await user.type(screen.getByLabelText(/question/i), 'What did we decide?');
     await user.click(screen.getByRole('button', { name: /ask assistant/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be loaded/i);
+    expect(await screen.findByText(/could not be loaded/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /retry last request/i }));
+    expect(await screen.findByText(/retry worked/i)).toBeInTheDocument();
   });
 
   it('renders a structured history summary with sources', async () => {
@@ -127,7 +136,7 @@ describe('AssistantPage', () => {
     await user.type(screen.getByLabelText(/summary topic/i), 'API planning');
     await user.click(screen.getByRole('button', { name: /summarize history/i }));
 
-    await waitFor(() => expect(mockedSummarizeHistory).toHaveBeenCalledWith('API planning', expect.any(AbortSignal)));
+    await waitFor(() => expect(mockedSummarizeHistory).toHaveBeenCalledWith('API planning'));
     expect(await screen.findByLabelText(/history summary/i)).toHaveTextContent(/key events/i);
     expect(screen.getByText(/Open item signal.*migration risk remains open/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /source references/i })).toBeInTheDocument();
@@ -154,8 +163,9 @@ describe('AssistantPage', () => {
     await user.type(input, 'quarterly budget');
     await user.click(screen.getByRole('button', { name: /summarize history/i }));
 
-    expect(await screen.findByRole('heading', { name: /not enough source context/i })).toBeInTheDocument();
-    expect(input).toHaveValue('quarterly budget');
+    expect(await screen.findByLabelText(/history summary/i)).toHaveTextContent(/not enough source context/i);
+    expect(screen.getByText('quarterly budget')).toBeInTheDocument();
+    expect(input).toHaveValue('');
   });
 
   it('shows a recoverable error state when summarizing fails', async () => {
@@ -168,6 +178,19 @@ describe('AssistantPage', () => {
     await user.type(screen.getByLabelText(/summary topic/i), 'API planning');
     await user.click(screen.getByRole('button', { name: /summarize history/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/history summary could not be loaded/i);
+    expect(await screen.findByText(/history summary could not be loaded/i)).toBeInTheDocument();
+  });
+
+  it('asks for clarification without calling retrieval for broad prompts', async () => {
+    const user = userEvent.setup();
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    await user.type(screen.getByLabelText(/question/i), 'API');
+    await user.click(screen.getByRole('button', { name: /ask assistant/i }));
+
+    expect(screen.getByText('API')).toBeInTheDocument();
+    expect(screen.getByText(/tell me a little more/i)).toBeInTheDocument();
+    expect(mockedAnswerQuestion).not.toHaveBeenCalled();
   });
 });

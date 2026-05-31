@@ -1,73 +1,90 @@
-import { Bot, Send } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { Bot, RotateCcw, Send } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
+import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
 import { answerQuestion, summarizeHistory } from '../api/assistantApi';
-import type { HistorySummary, SourceAwareAnswer, SourceReference, SummarySections } from '../types';
-
-type AssistantMode = 'answer' | 'summary';
+import type {
+  AssistantMessage,
+  AssistantMode,
+  SourceReference,
+  SummarySections,
+} from '../types';
 
 export function AssistantPage() {
   const { activeWorkspace, authenticated } = useAuth();
   const [mode, setMode] = useState<AssistantMode>('answer');
   const [question, setQuestion] = useState('');
-  const [submittedQuestion, setSubmittedQuestion] = useState('');
-  const [answer, setAnswer] = useState<SourceAwareAnswer | null>(null);
-  const [summary, setSummary] = useState<HistorySummary | null>(null);
+  const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRequest, setLastRequest] = useState<{ mode: AssistantMode; text: string } | null>(null);
+  const latestMessage = messages.at(-1);
+  const canRetry = Boolean(
+    lastRequest
+    && latestMessage?.role === 'assistant'
+    && 'type' in latestMessage
+    && latestMessage.type === 'error',
+  );
 
-  useEffect(() => {
-    if (!authenticated || !submittedQuestion) {
-      return;
-    }
-
-    const controller = new AbortController();
-    setIsLoading(true);
-    setError(null);
-
-    const request = mode === 'answer'
-      ? answerQuestion(submittedQuestion, controller.signal).then((value) => {
-        setAnswer(value);
-        setSummary(null);
-      })
-      : summarizeHistory(submittedQuestion, controller.signal).then((value) => {
-        setSummary(value);
-        setAnswer(null);
-      });
-
-    request
-      .catch((answerError) => {
-        if ((answerError as Error).name !== 'AbortError') {
-          setError(mode === 'answer' ? 'Assistant answer could not be loaded.' : 'History summary could not be loaded.');
-          setAnswer(null);
-          setSummary(null);
-        }
-      })
-      .finally(() => setIsLoading(false));
-
-    return () => controller.abort();
-  }, [authenticated, activeWorkspace?.id, mode, submittedQuestion]);
-
-  function submitQuestion(event: FormEvent<HTMLFormElement>) {
+  async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion) {
+    await sendPrompt(mode, question);
+  }
+
+  async function sendPrompt(requestMode: AssistantMode, rawPrompt: string) {
+    const trimmedPrompt = rawPrompt.trim();
+    if (!trimmedPrompt) {
       setError('Question is required.');
       return;
     }
 
-    setSubmittedQuestion(trimmedQuestion);
+    setError(null);
+
+    if (isAmbiguous(trimmedPrompt)) {
+      appendMessages([
+        userMessage(requestMode, trimmedPrompt),
+        assistantTextMessage(requestMode, 'clarification', 'Tell me a little more so I can search the right notebook context. Try a topic, decision, person, or remembered phrase.'),
+      ]);
+      setQuestion(trimmedPrompt);
+      return;
+    }
+
+    setLastRequest({ mode: requestMode, text: trimmedPrompt });
+    appendMessages([userMessage(requestMode, trimmedPrompt)]);
+    setQuestion('');
+    setIsLoading(true);
+
+    try {
+      if (requestMode === 'answer') {
+        const answer = await answerQuestion(trimmedPrompt);
+        appendMessages([{ answer, id: messageId(), mode: 'answer', role: 'assistant' }]);
+      } else {
+        const summary = await summarizeHistory(trimmedPrompt);
+        appendMessages([{ id: messageId(), mode: 'summary', role: 'assistant', summary }]);
+      }
+    } catch {
+      appendMessages([assistantTextMessage(requestMode, 'error', `${requestMode === 'answer' ? 'Assistant answer' : 'History summary'} could not be loaded.`)]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function changeMode(nextMode: AssistantMode) {
     setMode(nextMode);
-    setAnswer(null);
-    setSummary(null);
-    setSubmittedQuestion('');
     setError(null);
+  }
+
+  async function retryLastRequest() {
+    if (!lastRequest || isLoading) {
+      return;
+    }
+    await sendPrompt(lastRequest.mode, lastRequest.text);
+  }
+
+  function appendMessages(nextMessages: AssistantMessage[]) {
+    setMessages((current) => [...current, ...nextMessages]);
   }
 
   if (!authenticated) {
@@ -87,7 +104,7 @@ export function AssistantPage() {
       <header className="route-heading">
         <p className="eyebrow">{activeWorkspace?.name ?? 'Active'} workspace</p>
         <h2>Assistant</h2>
-        <p>Ask a question or summarize history, then inspect the notebook sources behind the result.</p>
+        <p>Ask questions, summarize history, and inspect source-backed responses in this session.</p>
       </header>
 
       <div className="assistant-mode" role="group" aria-label="Assistant mode">
@@ -99,7 +116,37 @@ export function AssistantPage() {
         </Button>
       </div>
 
-      <form className="assistant-question" onSubmit={submitQuestion}>
+      <section className="assistant-thread" aria-label="Assistant conversation">
+        {messages.length === 0 ? (
+          <div className="assistant-thread__empty">
+            <Bot aria-hidden="true" size={24} />
+            <p>Start with a specific question or topic from the active workspace.</p>
+          </div>
+        ) : null}
+        {messages.map((message) => (
+          <AssistantMessageItem key={message.id} message={message} />
+        ))}
+        {isLoading ? <LoadingState label={mode === 'answer' ? 'Preparing source-aware answer' : 'Preparing history summary'} /> : null}
+      </section>
+
+      {canRetry ? (
+        <Button
+          icon={<RotateCcw aria-hidden="true" size={16} />}
+          onClick={() => void retryLastRequest()}
+          type="button"
+          variant="secondary"
+        >
+          Retry last request
+        </Button>
+      ) : null}
+
+      {error && error !== 'Question is required.' ? (
+        <p className="session-warning" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <form className="assistant-question" onSubmit={(event) => void submitQuestion(event)}>
         <Field
           error={error === 'Question is required.' ? error : undefined}
           label={mode === 'answer' ? 'Question' : 'Summary topic'}
@@ -109,57 +156,67 @@ export function AssistantPage() {
           placeholder={mode === 'answer' ? 'What did we decide about the API problem?' : 'Summarize API planning'}
           value={question}
         />
-        <Button icon={<Send aria-hidden="true" size={18} />} type="submit" variant="primary">
+        <Button disabled={isLoading} icon={<Send aria-hidden="true" size={18} />} type="submit" variant="primary">
           {mode === 'answer' ? 'Ask assistant' : 'Summarize history'}
         </Button>
       </form>
-
-      {error && error !== 'Question is required.' ? (
-        <p className="session-warning" role="alert">
-          {error} Try again when the service is available.
-        </p>
-      ) : null}
-
-      {isLoading ? <LoadingState label={mode === 'answer' ? 'Preparing source-aware answer' : 'Preparing history summary'} /> : null}
-
-      {!isLoading && answer && !answer.enoughSourceContext ? (
-        <EmptyState
-          description="Try asking with a related phrase, note title, or a more specific remembered detail."
-          icon={<Bot aria-hidden="true" size={24} />}
-          title="Not enough source context"
-        />
-      ) : null}
-
-      {!isLoading && summary && !summary.enoughSourceContext ? (
-        <EmptyState
-          description="Try a related topic, note title, or a more specific remembered detail."
-          icon={<Bot aria-hidden="true" size={24} />}
-          title="Not enough source context"
-        />
-      ) : null}
-
-      {!isLoading && answer?.enoughSourceContext ? (
-        <section className="assistant-answer" aria-label="Source-aware answer">
-          <article className="assistant-answer__text">
-            <p className="eyebrow">Answer</p>
-            <p>{answer.answer}</p>
-          </article>
-
-          <SourceReferences sources={answer.sources} />
-        </section>
-      ) : null}
-
-      {!isLoading && summary?.enoughSourceContext ? (
-        <section className="assistant-answer" aria-label="History summary">
-          <article className="assistant-answer__text">
-            <p className="eyebrow">Summary</p>
-            <SummarySectionList sections={summary.sections} />
-          </article>
-
-          <SourceReferences sources={summary.sources} />
-        </section>
-      ) : null}
     </div>
+  );
+}
+
+function AssistantMessageItem({ message }: { message: AssistantMessage }) {
+  if (message.role === 'user') {
+    return (
+      <article className="assistant-message assistant-message--user">
+        <p className="eyebrow">{message.mode === 'answer' ? 'Question' : 'Summary topic'}</p>
+        <p>{message.text}</p>
+      </article>
+    );
+  }
+
+  if ('type' in message) {
+    return (
+      <article className={`assistant-message assistant-message--${message.type}`}>
+        <p className="eyebrow">{message.type === 'error' ? 'Error' : 'Clarifying question'}</p>
+        <p>{message.text}</p>
+      </article>
+    );
+  }
+
+  if (message.mode === 'answer') {
+    return (
+      <article className="assistant-message assistant-message--assistant" aria-label="Source-aware answer">
+        {message.answer.enoughSourceContext ? (
+          <>
+            <p className="eyebrow">Answer</p>
+            <p>{message.answer.answer}</p>
+            <SourceReferences sources={message.answer.sources} />
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">Not enough source context</p>
+            <p>{message.answer.answer}</p>
+          </>
+        )}
+      </article>
+    );
+  }
+
+  return (
+    <article className="assistant-message assistant-message--assistant" aria-label="History summary">
+      {message.summary.enoughSourceContext ? (
+        <>
+          <p className="eyebrow">Summary</p>
+          <SummarySectionList sections={message.summary.sections} />
+          <SourceReferences sources={message.summary.sources} />
+        </>
+      ) : (
+        <>
+          <p className="eyebrow">Not enough source context</p>
+          <SummarySectionList sections={message.summary.sections} />
+        </>
+      )}
+    </article>
   );
 }
 
@@ -206,4 +263,20 @@ function SourceReferences({ sources }: { sources: SourceReference[] }) {
       ))}
     </section>
   );
+}
+
+function isAmbiguous(prompt: string) {
+  return prompt.split(/\s+/).filter(Boolean).length < 2;
+}
+
+function userMessage(mode: AssistantMode, text: string): AssistantMessage {
+  return { id: messageId(), mode, role: 'user', text };
+}
+
+function assistantTextMessage(mode: AssistantMode, type: 'clarification' | 'error', text: string): AssistantMessage {
+  return { id: messageId(), mode, role: 'assistant', text, type };
+}
+
+function messageId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }

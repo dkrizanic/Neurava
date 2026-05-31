@@ -521,6 +521,72 @@ p {
   gap: 8px;
 }
 
+.assistant-thread {
+  display: grid;
+  gap: 12px;
+}
+
+.assistant-thread__empty {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  color: #526173;
+  display: flex;
+  gap: 12px;
+  min-height: 96px;
+  padding: 18px;
+}
+
+.assistant-thread__empty p {
+  margin: 0;
+}
+
+.assistant-message {
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  max-width: 920px;
+  padding: 16px;
+}
+
+.assistant-message p {
+  color: #334155;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.assistant-message--user {
+  background: #eef6f5;
+  border-color: #b9d8d4;
+  justify-self: end;
+  width: min(100%, 720px);
+}
+
+.assistant-message--assistant,
+.assistant-message--clarification {
+  background: #ffffff;
+  justify-self: start;
+  width: min(100%, 860px);
+}
+
+.assistant-message--assistant {
+  border-left: 4px solid #0f766e;
+}
+
+.assistant-message--clarification {
+  border-left: 4px solid #6b7280;
+}
+
+.assistant-message--error {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+  justify-self: start;
+  width: min(100%, 760px);
+}
+
 .memory-results {
   display: grid;
   gap: 12px;

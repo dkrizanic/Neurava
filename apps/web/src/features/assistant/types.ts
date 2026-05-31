@@ -27,3 +27,32 @@ export type HistorySummary = {
   sections: SummarySections;
   sources: SourceReference[];
 };
+
+export type AssistantMode = 'answer' | 'summary';
+
+export type AssistantMessage =
+  | {
+      id: string;
+      mode: AssistantMode;
+      role: 'user';
+      text: string;
+    }
+  | {
+      answer: SourceAwareAnswer;
+      id: string;
+      mode: 'answer';
+      role: 'assistant';
+    }
+  | {
+      id: string;
+      mode: 'summary';
+      role: 'assistant';
+      summary: HistorySummary;
+    }
+  | {
+      id: string;
+      mode: AssistantMode;
+      role: 'assistant';
+      text: string;
+      type: 'clarification' | 'error';
+    };
