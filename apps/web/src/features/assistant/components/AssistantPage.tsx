@@ -1,10 +1,10 @@
-import { Bot, RotateCcw, Send } from 'lucide-react';
+import { Bot, FilePlus2, RotateCcw, Send, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
-import { answerQuestion, summarizeHistory } from '../api/assistantApi';
+import { answerQuestion, previewCreateNote, summarizeHistory } from '../api/assistantApi';
 import type {
   AssistantMessage,
   AssistantMode,
@@ -42,7 +42,7 @@ export function AssistantPage() {
 
     setError(null);
 
-    if (isAmbiguous(trimmedPrompt)) {
+    if (requestMode !== 'preview' && isAmbiguous(trimmedPrompt)) {
       appendMessages([
         userMessage(requestMode, trimmedPrompt),
         assistantTextMessage(requestMode, 'clarification', 'Tell me a little more so I can search the right notebook context. Try a topic, decision, person, or remembered phrase.'),
@@ -60,12 +60,15 @@ export function AssistantPage() {
       if (requestMode === 'answer') {
         const answer = await answerQuestion(trimmedPrompt);
         appendMessages([{ answer, id: messageId(), mode: 'answer', role: 'assistant' }]);
-      } else {
+      } else if (requestMode === 'summary') {
         const summary = await summarizeHistory(trimmedPrompt);
         appendMessages([{ id: messageId(), mode: 'summary', role: 'assistant', summary }]);
+      } else {
+        const preview = await previewCreateNote(trimmedPrompt);
+        appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
       }
     } catch {
-      appendMessages([assistantTextMessage(requestMode, 'error', `${requestMode === 'answer' ? 'Assistant answer' : 'History summary'} could not be loaded.`)]);
+      appendMessages([assistantTextMessage(requestMode, 'error', errorMessageFor(requestMode))]);
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +88,10 @@ export function AssistantPage() {
 
   function appendMessages(nextMessages: AssistantMessage[]) {
     setMessages((current) => [...current, ...nextMessages]);
+  }
+
+  function removeMessage(messageIdToRemove: string) {
+    setMessages((current) => current.filter((message) => message.id !== messageIdToRemove));
   }
 
   if (!authenticated) {
@@ -114,6 +121,9 @@ export function AssistantPage() {
         <Button onClick={() => changeMode('summary')} type="button" variant={mode === 'summary' ? 'primary' : 'secondary'}>
           Summary
         </Button>
+        <Button onClick={() => changeMode('preview')} type="button" variant={mode === 'preview' ? 'primary' : 'secondary'}>
+          Preview
+        </Button>
       </div>
 
       <section className="assistant-thread" aria-label="Assistant conversation">
@@ -124,9 +134,9 @@ export function AssistantPage() {
           </div>
         ) : null}
         {messages.map((message) => (
-          <AssistantMessageItem key={message.id} message={message} />
+          <AssistantMessageItem key={message.id} message={message} onCancelPreview={removeMessage} />
         ))}
-        {isLoading ? <LoadingState label={mode === 'answer' ? 'Preparing source-aware answer' : 'Preparing history summary'} /> : null}
+        {isLoading ? <LoadingState label={loadingLabelFor(mode)} /> : null}
       </section>
 
       {canRetry ? (
@@ -149,26 +159,32 @@ export function AssistantPage() {
       <form className="assistant-question" onSubmit={(event) => void submitQuestion(event)}>
         <Field
           error={error === 'Question is required.' ? error : undefined}
-          label={mode === 'answer' ? 'Question' : 'Summary topic'}
-          maxLength={500}
+          label={inputLabelFor(mode)}
+          maxLength={mode === 'preview' ? 4000 : 500}
           name="assistant-question"
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder={mode === 'answer' ? 'What did we decide about the API problem?' : 'Summarize API planning'}
+          placeholder={placeholderFor(mode)}
           value={question}
         />
         <Button disabled={isLoading} icon={<Send aria-hidden="true" size={18} />} type="submit" variant="primary">
-          {mode === 'answer' ? 'Ask assistant' : 'Summarize history'}
+          {buttonLabelFor(mode)}
         </Button>
       </form>
     </div>
   );
 }
 
-function AssistantMessageItem({ message }: { message: AssistantMessage }) {
+function AssistantMessageItem({
+  message,
+  onCancelPreview,
+}: {
+  message: AssistantMessage;
+  onCancelPreview: (messageIdToRemove: string) => void;
+}) {
   if (message.role === 'user') {
     return (
       <article className="assistant-message assistant-message--user">
-        <p className="eyebrow">{message.mode === 'answer' ? 'Question' : 'Summary topic'}</p>
+        <p className="eyebrow">{inputLabelFor(message.mode)}</p>
         <p>{message.text}</p>
       </article>
     );
@@ -179,6 +195,50 @@ function AssistantMessageItem({ message }: { message: AssistantMessage }) {
       <article className={`assistant-message assistant-message--${message.type}`}>
         <p className="eyebrow">{message.type === 'error' ? 'Error' : 'Clarifying question'}</p>
         <p>{message.text}</p>
+      </article>
+    );
+  }
+
+  if ('preview' in message) {
+    return (
+      <article className="assistant-message assistant-message--assistant" aria-label="AI change preview">
+        <p className="eyebrow">Preview only</p>
+        <h3>{message.preview.summary}</h3>
+        <dl className="assistant-preview">
+          <div>
+            <dt>Entity</dt>
+            <dd>{message.preview.entityType}</dd>
+          </div>
+          <div>
+            <dt>Change</dt>
+            <dd>{message.preview.changeType}</dd>
+          </div>
+          <div>
+            <dt>Title</dt>
+            <dd>{message.preview.preview.title}</dd>
+          </div>
+          <div>
+            <dt>Body</dt>
+            <dd>{message.preview.preview.body}</dd>
+          </div>
+          <div>
+            <dt>Tags</dt>
+            <dd>{message.preview.preview.tags || 'No tags suggested'}</dd>
+          </div>
+        </dl>
+        <div className="assistant-preview__actions">
+          <Button disabled icon={<FilePlus2 aria-hidden="true" size={16} />} type="button" variant="secondary">
+            Apply comes next
+          </Button>
+          <Button
+            icon={<X aria-hidden="true" size={16} />}
+            onClick={() => onCancelPreview(message.id)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+        </div>
       </article>
     );
   }
@@ -275,6 +335,56 @@ function userMessage(mode: AssistantMode, text: string): AssistantMessage {
 
 function assistantTextMessage(mode: AssistantMode, type: 'clarification' | 'error', text: string): AssistantMessage {
   return { id: messageId(), mode, role: 'assistant', text, type };
+}
+
+function inputLabelFor(mode: AssistantMode) {
+  if (mode === 'answer') {
+    return 'Question';
+  }
+  if (mode === 'summary') {
+    return 'Summary topic';
+  }
+  return 'Note preview input';
+}
+
+function placeholderFor(mode: AssistantMode) {
+  if (mode === 'answer') {
+    return 'What did we decide about the API problem?';
+  }
+  if (mode === 'summary') {
+    return 'Summarize API planning';
+  }
+  return 'Paste messy notes or a rough idea to preview a clean note';
+}
+
+function buttonLabelFor(mode: AssistantMode) {
+  if (mode === 'answer') {
+    return 'Ask assistant';
+  }
+  if (mode === 'summary') {
+    return 'Summarize history';
+  }
+  return 'Preview note';
+}
+
+function loadingLabelFor(mode: AssistantMode) {
+  if (mode === 'answer') {
+    return 'Preparing source-aware answer';
+  }
+  if (mode === 'summary') {
+    return 'Preparing history summary';
+  }
+  return 'Preparing note preview';
+}
+
+function errorMessageFor(mode: AssistantMode) {
+  if (mode === 'answer') {
+    return 'Assistant answer could not be loaded.';
+  }
+  if (mode === 'summary') {
+    return 'History summary could not be loaded.';
+  }
+  return 'AI change preview could not be loaded.';
 }
 
 function messageId() {

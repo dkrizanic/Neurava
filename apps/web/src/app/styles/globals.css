@@ -587,6 +587,39 @@ p {
   width: min(100%, 760px);
 }
 
+.assistant-preview {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.assistant-preview div {
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.assistant-preview dt {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.assistant-preview dd {
+  color: #334155;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.assistant-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .memory-results {
   display: grid;
   gap: 12px;

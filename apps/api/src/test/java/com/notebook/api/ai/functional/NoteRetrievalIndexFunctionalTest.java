@@ -334,6 +334,59 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.result.sources").isEmpty());
 	}
 
+	@Test
+	void assistantActionPreviewReturnsCreateNoteDraftWithoutPersistingNote() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-previews")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"create_note","input":{"text":"API follow-up\\nWe need to document the preview contract and apply flow."}}
+								""")
+						.with(user("preview-note-user", "preview-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.action").value("create_note"))
+				.andExpect(jsonPath("$.entityType").value("note"))
+				.andExpect(jsonPath("$.changeType").value("create"))
+				.andExpect(jsonPath("$.summary").value(org.hamcrest.Matchers.containsString("Create a new note draft")))
+				.andExpect(jsonPath("$.preview.title").value("API follow-up"))
+				.andExpect(jsonPath("$.preview.body").value(org.hamcrest.Matchers.containsString("preview contract")))
+				.andExpect(jsonPath("$.preview.tags").value(org.hamcrest.Matchers.containsString("follow")));
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes").param("q", "preview contract")
+						.with(user("preview-note-user", "preview-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().json("[]"));
+	}
+
+	@Test
+	void assistantActionPreviewRejectsBlankCreateNoteInputWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-previews")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"create_note","input":{"text":"   "}}
+								""")
+						.with(user("blank-preview-user", "blank-preview@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Validation failed"))
+				.andExpect(jsonPath("$.errors[0].field").value("text"));
+	}
+
+	@Test
+	void assistantActionPreviewRejectsUnsupportedActionsWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-previews")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"delete_notes","input":{"text":"all"}}
+								""")
+						.with(user("unsupported-preview-user", "unsupported-preview@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Unsupported assistant action preview"))
+				.andExpect(jsonPath("$.detail").value("Assistant action preview is not supported."))
+				.andExpect(jsonPath("$.action").value("delete_notes"));
+	}
+
 	private void createNote(String subject, String email, String title, String body) throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)

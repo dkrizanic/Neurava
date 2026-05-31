@@ -1,16 +1,18 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { answerQuestion, summarizeHistory } from '../api/assistantApi';
+import { answerQuestion, previewCreateNote, summarizeHistory } from '../api/assistantApi';
 import { AssistantPage } from './AssistantPage';
 
 vi.mock('../api/assistantApi', () => ({
   answerQuestion: vi.fn(),
+  previewCreateNote: vi.fn(),
   summarizeHistory: vi.fn(),
 }));
 
 const mockedAnswerQuestion = vi.mocked(answerQuestion);
+const mockedPreviewCreateNote = vi.mocked(previewCreateNote);
 const mockedSummarizeHistory = vi.mocked(summarizeHistory);
 
 const authSession = {
@@ -31,6 +33,7 @@ const authSession = {
 describe('AssistantPage', () => {
   beforeEach(() => {
     mockedAnswerQuestion.mockReset();
+    mockedPreviewCreateNote.mockReset();
     mockedSummarizeHistory.mockReset();
   });
 
@@ -192,5 +195,71 @@ describe('AssistantPage', () => {
     expect(screen.getByText('API')).toBeInTheDocument();
     expect(screen.getByText(/tell me a little more/i)).toBeInTheDocument();
     expect(mockedAnswerQuestion).not.toHaveBeenCalled();
+  });
+
+  it('renders a create-note preview without applying it', async () => {
+    const user = userEvent.setup();
+    mockedPreviewCreateNote.mockResolvedValue({
+      action: 'create_note',
+      changeType: 'create',
+      entityType: 'note',
+      preview: {
+        body: 'We need to document the preview contract.',
+        tags: 'document,preview,contract',
+        title: 'Preview contract',
+      },
+      summary: 'Create a new note draft in the active workspace.',
+    });
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    await user.click(screen.getByRole('button', { name: /preview/i }));
+    await user.type(screen.getByLabelText(/note preview input/i), 'Preview contract');
+    await user.click(screen.getByRole('button', { name: /preview note/i }));
+
+    await waitFor(() => expect(mockedPreviewCreateNote).toHaveBeenCalledWith('Preview contract'));
+    const preview = await screen.findByLabelText(/ai change preview/i);
+    expect(preview).toHaveTextContent(/preview only/i);
+    expect(within(preview).getByText('Preview contract')).toBeInTheDocument();
+    expect(within(preview).getByText(/document,preview,contract/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /apply comes next/i })).toBeDisabled();
+  });
+
+  it('cancels a visible create-note preview', async () => {
+    const user = userEvent.setup();
+    mockedPreviewCreateNote.mockResolvedValue({
+      action: 'create_note',
+      changeType: 'create',
+      entityType: 'note',
+      preview: {
+        body: 'Body',
+        tags: '',
+        title: 'Temporary preview',
+      },
+      summary: 'Create a new note draft in the active workspace.',
+    });
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    await user.click(screen.getByRole('button', { name: /preview/i }));
+    await user.type(screen.getByLabelText(/note preview input/i), 'Temporary preview');
+    await user.click(screen.getByRole('button', { name: /preview note/i }));
+    expect(await screen.findByLabelText(/ai change preview/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(screen.queryByLabelText(/ai change preview/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a recoverable error state when preview generation fails', async () => {
+    const user = userEvent.setup();
+    mockedPreviewCreateNote.mockRejectedValue(new Error('down'));
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    await user.click(screen.getByRole('button', { name: /preview/i }));
+    await user.type(screen.getByLabelText(/note preview input/i), 'Preview contract');
+    await user.click(screen.getByRole('button', { name: /preview note/i }));
+
+    expect(await screen.findByText(/ai change preview could not be loaded/i)).toBeInTheDocument();
   });
 });

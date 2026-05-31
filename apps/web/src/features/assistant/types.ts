@@ -29,7 +29,7 @@ export type HistorySummary = {
   sources: SourceReference[];
 };
 
-export type AssistantMode = 'answer' | 'summary';
+export type AssistantMode = 'answer' | 'preview' | 'summary';
 
 export type AssistantActionName = 'answer_question' | 'search_memory' | 'summarize_history';
 
@@ -42,6 +42,22 @@ export type AssistantActionResultByName = {
 export type AssistantActionResponse<TAction extends AssistantActionName> = {
   action: TAction;
   result: AssistantActionResultByName[TAction];
+};
+
+export type AssistantPreviewActionName = 'create_note';
+
+export type NoteChangePreview = {
+  body: string;
+  tags: string;
+  title: string;
+};
+
+export type AssistantActionPreviewResponse = {
+  action: AssistantPreviewActionName;
+  changeType: 'create';
+  entityType: 'note';
+  preview: NoteChangePreview;
+  summary: string;
 };
 
 export type AssistantMessage =
@@ -62,6 +78,11 @@ export type AssistantMessage =
       mode: 'summary';
       role: 'assistant';
       summary: HistorySummary;
+    }
+  | {
+      id: string;
+      preview: AssistantActionPreviewResponse;
+      role: 'assistant';
     }
   | {
       id: string;
