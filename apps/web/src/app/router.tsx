@@ -13,6 +13,9 @@ const SectionPage = lazy(() =>
 const NotesPage = lazy(() =>
   import('../features/notes/components/NotesPage').then((module) => ({ default: module.NotesPage })),
 );
+const AssistantPage = lazy(() =>
+  import('../features/assistant/components/AssistantPage').then((module) => ({ default: module.AssistantPage })),
+);
 const SearchPage = lazy(() =>
   import('../features/search/components/SearchPage').then((module) => ({ default: module.SearchPage })),
 );
@@ -38,6 +41,10 @@ export const router = createBrowserRouter([
       {
         element: withRouteLoading(<NotesPage />),
         path: 'notes',
+      },
+      {
+        element: withRouteLoading(<AssistantPage />),
+        path: 'assistant',
       },
       {
         element: withRouteLoading(<SearchPage />),

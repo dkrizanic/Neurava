@@ -107,6 +107,68 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(content().json("[]"));
 	}
 
+	@Test
+	void sourceAwareAnswerIncludesNoteSources() throws Exception {
+		createNote("source-answer-user", "source-answer@example.com",
+				"API decision", "We decided the API problem should be solved with stable problem details.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/answers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"question\":\"What did we decide about the API problem?\"}")
+						.with(user("source-answer-user", "source-answer@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.enoughSourceContext").value(true))
+				.andExpect(jsonPath("$.answer").value(org.hamcrest.Matchers.containsString("available notebook sources")))
+				.andExpect(jsonPath("$.sources[0].type").value("note"))
+				.andExpect(jsonPath("$.sources[0].title").value("API decision"))
+				.andExpect(jsonPath("$.sources[0].snippet").value(org.hamcrest.Matchers.containsString("API problem")))
+				.andExpect(jsonPath("$.sources[0].sourceUpdatedAt").exists());
+	}
+
+	@Test
+	void sourceAwareAnswerRejectsBlankQuestionsWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/answers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"question\":\"   \"}")
+						.with(user("blank-answer-user", "blank-answer@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Validation failed"))
+				.andExpect(jsonPath("$.errors[0].field").value("question"));
+	}
+
+	@Test
+	void sourceAwareAnswerIndicatesInsufficientContextWhenNoSourcesMatch() throws Exception {
+		createNote("insufficient-answer-user", "insufficient-answer@example.com",
+				"Garden notes", "Tomatoes need watering after lunch.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/answers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"question\":\"What did we decide about quarterly budget?\"}")
+						.with(user("insufficient-answer-user", "insufficient-answer@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.enoughSourceContext").value(false))
+				.andExpect(jsonPath("$.answer").value(org.hamcrest.Matchers.containsString("not have enough source context")))
+				.andExpect(jsonPath("$.sources").isEmpty());
+	}
+
+	@Test
+	void sourceAwareAnswerDoesNotUseOtherWorkspaceSources() throws Exception {
+		createNote("other-source-answer-user", "other-source-answer@example.com",
+				"Other workspace answer", "The API problem was fixed in another workspace.");
+		createNote("isolated-answer-user", "isolated-answer@example.com",
+				"Personal errand", "Buy tea after lunch.");
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/answers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"question\":\"What happened with the API problem?\"}")
+						.with(user("isolated-answer-user", "isolated-answer@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.enoughSourceContext").value(false))
+				.andExpect(jsonPath("$.sources").isEmpty());
+	}
+
 	private void createNote(String subject, String email, String title, String body) throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)
