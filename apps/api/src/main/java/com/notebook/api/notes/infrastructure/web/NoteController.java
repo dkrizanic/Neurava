@@ -1,5 +1,6 @@
 package com.notebook.api.notes.infrastructure.web;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,17 +46,18 @@ class NoteController {
 			@RequestParam(required = false) String tag,
 			@RequestParam(required = false) Boolean favorite,
 			@RequestParam(required = false) Boolean pinned,
+			@RequestParam(required = false) LocalDate date,
 			@RequestParam(defaultValue = "false") boolean archived) {
 		UUID accountId = this.accounts.createOrUpdateAccountIdFrom(authentication);
 		UUID workspaceId = activeWorkspaceId(accountId);
-		return this.notes.list(workspaceId, new NoteFilters(q, tag, favorite, pinned, archived));
+		return this.notes.list(workspaceId, new NoteFilters(q, tag, favorite, pinned, date, archived));
 	}
 
 	@PostMapping
 	NoteSummary create(Authentication authentication, @Valid @RequestBody CreateNoteRequest request) {
 		UUID accountId = this.accounts.createOrUpdateAccountIdFrom(authentication);
 		UUID workspaceId = activeWorkspaceId(accountId);
-		return this.notes.create(accountId, workspaceId, request.title(), request.body());
+		return this.notes.create(accountId, workspaceId, request.title(), request.body(), request.noteDate());
 	}
 
 	@PatchMapping("/{noteId}/organization")
@@ -100,8 +102,14 @@ class NoteController {
 			@Size(max = 180, message = "Title must be 180 characters or fewer.")
 			String title,
 			@Size(max = 20000, message = "Body must be 20000 characters or fewer.")
-			String body
+			String body,
+			LocalDate noteDate
 	) {
+		CreateNoteRequest {
+			if (noteDate == null) {
+				noteDate = LocalDate.now();
+			}
+		}
 	}
 
 	record UpdateNoteRequest(

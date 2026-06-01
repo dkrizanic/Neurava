@@ -3,6 +3,7 @@ import type { Note } from '../types';
 
 export type NoteFilters = {
   archived?: boolean;
+  date?: string;
   favorite?: boolean;
   pinned?: boolean;
   q?: string;
@@ -12,6 +13,7 @@ export type NoteFilters = {
 function notesUrl(filters: NoteFilters = {}) {
   const params = new URLSearchParams();
   if (filters.archived) params.set('archived', 'true');
+  if (filters.date) params.set('date', filters.date);
   if (filters.favorite) params.set('favorite', 'true');
   if (filters.pinned) params.set('pinned', 'true');
   if (filters.q) params.set('q', filters.q);
@@ -36,7 +38,7 @@ export async function fetchNotes(filters?: NoteFilters, signal?: AbortSignal): P
   return response.json() as Promise<Note[]>;
 }
 
-export async function createNote(input: { body: string; title: string }): Promise<Note> {
+export async function createNote(input: { body: string; noteDate: string; title: string }): Promise<Note> {
   const response = await fetch(`${apiBaseUrl}/api/v1/notes`, {
     body: JSON.stringify(input),
     credentials: 'include',

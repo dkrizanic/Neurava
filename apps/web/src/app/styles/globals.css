@@ -459,6 +459,36 @@ p {
   padding: 14px;
 }
 
+.notes-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.notes-header h2 {
+  color: #17202a;
+  font-size: 1.65rem;
+  line-height: 1.16;
+  margin: 0;
+}
+
+.note-daybar {
+  align-items: end;
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(180px, 260px) auto auto;
+  padding: 14px;
+}
+
+.note-daybar__date {
+  min-width: 0;
+}
+
 .check-control {
   align-items: center;
   color: #334155;
@@ -486,6 +516,14 @@ p {
   display: grid;
   gap: 14px;
   padding: 18px;
+}
+
+.note-composer--focused {
+  max-width: 760px;
+}
+
+.note-composer--focused textarea {
+  min-height: 240px;
 }
 
 .note-composer .ui-button {
@@ -719,6 +757,10 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.notes-list--compact {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
 .note-card {
   background: #ffffff;
   border: 1px solid #d9e1ea;
@@ -727,6 +769,50 @@ p {
   gap: 8px;
   min-height: 156px;
   padding: 18px;
+}
+
+.note-card--compact {
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+}
+
+.note-card--compact h3 {
+  color: #17202a;
+  font-size: 1rem;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.note-card--compact p {
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.note-card__heading {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.note-card__tags {
+  color: #697586 !important;
+  font-size: 0.84rem;
+}
+
+.note-badge {
+  background: #eef6f5;
+  border-radius: 8px;
+  color: #0f766e;
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 760;
+  padding: 4px 7px;
 }
 
 .note-card__meta {
@@ -931,8 +1017,14 @@ p {
   .memory-search,
   .notes-list,
   .note-filters,
+  .note-daybar,
   .note-card__tools {
     grid-template-columns: 1fr;
+  }
+
+  .notes-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .overview-hero {

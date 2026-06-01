@@ -1,6 +1,7 @@
 package com.notebook.api.notes.application;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.notebook.api.notes.domain.Note;
@@ -13,6 +14,7 @@ public record NoteSummary(
 		String body,
 		Instant createdAt,
 		Instant updatedAt,
+		LocalDate noteDate,
 		Instant archivedAt,
 		String tags,
 		boolean favorite,
@@ -30,6 +32,7 @@ public record NoteSummary(
 				note.getBody(),
 				note.getCreatedAt(),
 				note.getUpdatedAt(),
+				note.getNoteDate(),
 				note.getArchivedAt(),
 				note.getTags(),
 				note.isFavorite(),

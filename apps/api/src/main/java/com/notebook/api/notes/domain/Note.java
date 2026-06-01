@@ -1,6 +1,7 @@
 package com.notebook.api.notes.domain;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -33,6 +34,9 @@ public class Note {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "note_date", nullable = false)
+	private LocalDate noteDate;
+
 	@Column(name = "archived_at")
 	private Instant archivedAt;
 
@@ -54,18 +58,21 @@ public class Note {
 	protected Note() {
 	}
 
-	private Note(UUID ownerAccountId, UUID workspaceContextId, String title, String body, Instant now) {
+	private Note(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate,
+			Instant now) {
 		this.id = UUID.randomUUID();
 		this.ownerAccountId = ownerAccountId;
 		this.workspaceContextId = workspaceContextId;
 		this.title = title.trim();
 		this.body = body == null ? "" : body;
+		this.noteDate = noteDate;
 		this.createdAt = now;
 		this.updatedAt = now;
 	}
 
-	public static Note create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, Instant now) {
-		return new Note(ownerAccountId, workspaceContextId, title, body, now);
+	public static Note create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate,
+			Instant now) {
+		return new Note(ownerAccountId, workspaceContextId, title, body, noteDate, now);
 	}
 
 	public void update(String title, String body, Instant now) {
@@ -120,6 +127,10 @@ public class Note {
 
 	public Instant getUpdatedAt() {
 		return this.updatedAt;
+	}
+
+	public LocalDate getNoteDate() {
+		return this.noteDate;
 	}
 
 	public Instant getArchivedAt() {

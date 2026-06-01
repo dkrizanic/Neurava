@@ -1,6 +1,7 @@
 package com.notebook.api.notes.application;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -27,8 +28,8 @@ public class NoteService {
 	}
 
 	@Transactional
-	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body) {
-		Note note = Note.create(ownerAccountId, workspaceContextId, title, body, Instant.now());
+	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate) {
+		Note note = Note.create(ownerAccountId, workspaceContextId, title, body, noteDate, Instant.now());
 		Note saved = this.notes.save(note);
 		publishContentChanged(saved);
 		return NoteSummary.from(saved);
@@ -93,6 +94,7 @@ public class NoteService {
 			String tag,
 			Boolean favorite,
 			Boolean pinned,
+			LocalDate noteDate,
 			boolean archived
 	) {
 
@@ -101,7 +103,8 @@ public class NoteService {
 					&& queryMatches(note)
 					&& tagMatches(note)
 					&& flagMatches(this.favorite, note.isFavorite())
-					&& flagMatches(this.pinned, note.isPinned());
+					&& flagMatches(this.pinned, note.isPinned())
+					&& noteDateMatches(note);
 		}
 
 		private boolean archivedStateMatches(Note note) {
@@ -121,6 +124,10 @@ public class NoteService {
 		private boolean tagMatches(Note note) {
 			return this.tag == null || this.tag.isBlank()
 					|| note.getTags().toLowerCase(Locale.ROOT).contains(this.tag.toLowerCase(Locale.ROOT));
+		}
+
+		private boolean noteDateMatches(Note note) {
+			return this.noteDate == null || this.noteDate.equals(note.getNoteDate());
 		}
 
 		private static boolean flagMatches(Boolean expected, boolean actual) {

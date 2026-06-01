@@ -8,6 +8,7 @@ export type Note = {
   title: string;
   body: string;
   createdAt: string;
+  noteDate: string;
   editorMode: 'RICH_TEXT' | 'MARKDOWN' | 'JOURNAL';
   favorite: boolean;
   linkedResources: string;

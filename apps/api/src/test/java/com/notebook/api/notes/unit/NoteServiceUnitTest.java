@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +29,7 @@ class NoteServiceUnitTest {
 	private final NoteRepository notes = mock(NoteRepository.class);
 	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
 	private final NoteService service = new NoteService(this.notes, this.events);
+	private static final LocalDate NOTE_DATE = LocalDate.parse("2026-06-01");
 
 	@Test
 	void createsNoteWithOwnerAndWorkspaceMetadata() {
@@ -35,12 +37,13 @@ class NoteServiceUnitTest {
 		UUID workspaceContextId = UUID.randomUUID();
 		when(this.notes.save(any(Note.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		NoteSummary note = this.service.create(ownerAccountId, workspaceContextId, "  First note  ", "Body");
+		NoteSummary note = this.service.create(ownerAccountId, workspaceContextId, "  First note  ", "Body", NOTE_DATE);
 
 		assertThat(note.ownerAccountId()).isEqualTo(ownerAccountId);
 		assertThat(note.workspaceContextId()).isEqualTo(workspaceContextId);
 		assertThat(note.title()).isEqualTo("First note");
 		assertThat(note.body()).isEqualTo("Body");
+		assertThat(note.noteDate()).isEqualTo(NOTE_DATE);
 		assertThat(note.createdAt()).isNotNull();
 		assertThat(note.updatedAt()).isNotNull();
 		ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
@@ -52,11 +55,11 @@ class NoteServiceUnitTest {
 	@Test
 	void listsNotesFromOneWorkspaceOnly() {
 		UUID workspaceContextId = UUID.randomUUID();
-		Note newest = Note.create(UUID.randomUUID(), workspaceContextId, "Newest", "", Instant.now());
-		Note older = Note.create(UUID.randomUUID(), workspaceContextId, "Older", "", Instant.now());
+		Note newest = Note.create(UUID.randomUUID(), workspaceContextId, "Newest", "", NOTE_DATE, Instant.now());
+		Note older = Note.create(UUID.randomUUID(), workspaceContextId, "Older", "", NOTE_DATE, Instant.now());
 		when(this.notes.findByWorkspaceContextIdOrderByUpdatedAtDesc(workspaceContextId)).thenReturn(List.of(newest, older));
 
-		List<NoteSummary> results = this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, false));
+		List<NoteSummary> results = this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, NOTE_DATE, false));
 
 		assertThat(results).extracting(NoteSummary::title).containsExactly("Newest", "Older");
 	}
@@ -65,7 +68,7 @@ class NoteServiceUnitTest {
 	void updatesExistingWorkspaceNote() {
 		UUID ownerAccountId = UUID.randomUUID();
 		UUID workspaceContextId = UUID.randomUUID();
-		Note existing = Note.create(ownerAccountId, workspaceContextId, "Before", "Old", Instant.EPOCH);
+		Note existing = Note.create(ownerAccountId, workspaceContextId, "Before", "Old", NOTE_DATE, Instant.EPOCH);
 		when(this.notes.findByIdAndWorkspaceContextId(existing.getId(), workspaceContextId)).thenReturn(Optional.of(existing));
 
 		NoteSummary updated = this.service.update(existing.getId(), workspaceContextId, "After", "New body");
@@ -79,8 +82,8 @@ class NoteServiceUnitTest {
 	@Test
 	void archivesRestoresAndFiltersNotes() {
 		UUID workspaceContextId = UUID.randomUUID();
-		Note active = Note.create(UUID.randomUUID(), workspaceContextId, "Active", "Search body", Instant.EPOCH);
-		Note archived = Note.create(UUID.randomUUID(), workspaceContextId, "Archived", "", Instant.EPOCH);
+		Note active = Note.create(UUID.randomUUID(), workspaceContextId, "Active", "Search body", NOTE_DATE, Instant.EPOCH);
+		Note archived = Note.create(UUID.randomUUID(), workspaceContextId, "Archived", "", NOTE_DATE, Instant.EPOCH);
 		archived.archive(Instant.now());
 		when(this.notes.findByWorkspaceContextIdOrderByUpdatedAtDesc(workspaceContextId)).thenReturn(List.of(archived, active));
 		when(this.notes.findByIdAndWorkspaceContextId(active.getId(), workspaceContextId)).thenReturn(Optional.of(active));
@@ -92,10 +95,10 @@ class NoteServiceUnitTest {
 		assertThat(organized.favorite()).isTrue();
 		assertThat(organized.pinned()).isTrue();
 		assertThat(organized.editorMode()).isEqualTo("MARKDOWN");
-		assertThat(this.service.list(workspaceContextId, new NoteFilters("search", "planning", true, true, false)))
+		assertThat(this.service.list(workspaceContextId, new NoteFilters("search", "planning", true, true, NOTE_DATE, false)))
 				.extracting(NoteSummary::title)
 				.containsExactly("Active");
-		assertThat(this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, true)))
+		assertThat(this.service.list(workspaceContextId, new NoteFilters(null, null, null, null, NOTE_DATE, true)))
 				.extracting(NoteSummary::title)
 				.containsExactly("Archived");
 	}

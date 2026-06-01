@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
 import { archiveNote, createNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
-import { NotesPage } from './NotesPage';
+import { NewNotePage, NotesPage } from './NotesPage';
 
 vi.mock('../api/notesApi', () => ({
   createNote: vi.fn(),
@@ -36,6 +36,29 @@ const authSession = {
   authenticated: true,
 };
 
+const note = {
+  archivedAt: null,
+  body: 'Project planning details that should appear as a compact preview.',
+  createdAt: '2026-06-01T08:00:00Z',
+  editorMode: 'RICH_TEXT' as const,
+  favorite: false,
+  id: 'note-1',
+  linkedResources: '',
+  noteDate: '2026-06-01',
+  ownerAccountId: 'account-1',
+  pinned: false,
+  tags: 'planning',
+  title: 'Organized note',
+  updatedAt: '2026-06-01T08:00:00Z',
+  workspaceContextId: 'workspace-1',
+};
+
+function currentDateKey() {
+  const date = new Date();
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 10);
+}
+
 describe('NotesPage', () => {
   beforeEach(() => {
     mockedCreateNote.mockReset();
@@ -54,35 +77,38 @@ describe('NotesPage', () => {
     expect(screen.getByRole('heading', { name: /sign in to unlock your notebook/i })).toBeInTheDocument();
   });
 
-  it('shows an empty state when the active workspace has no notes', async () => {
+  it('loads today by default and shows an empty day state', async () => {
     mockedFetchNotes.mockResolvedValue([]);
 
     renderWithAuth(<NotesPage />, authSession);
 
-    await waitFor(() => expect(mockedFetchNotes).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('heading', { name: /no notes yet/i })).toBeInTheDocument();
+    await waitFor(() => expect(mockedFetchNotes).toHaveBeenCalledWith(
+      expect.objectContaining({ date: currentDateKey() }),
+      expect.any(AbortSignal),
+    ));
+    expect(screen.getByRole('heading', { name: /no notes for this day/i })).toBeInTheDocument();
   });
 
-  it('creates a note and adds it to the workspace list', async () => {
-    const user = userEvent.setup();
+  it('changes the selected day and opens new note for that day', async () => {
     mockedFetchNotes.mockResolvedValue([]);
-    mockedCreateNote.mockResolvedValue({
-      body: 'A useful memory',
-      archivedAt: null,
-      createdAt: '2026-05-30T00:00:00Z',
-      editorMode: 'RICH_TEXT',
-      favorite: false,
-      id: 'note-1',
-      linkedResources: '',
-      ownerAccountId: 'account-1',
-      pinned: false,
-      tags: '',
-      title: 'First note',
-      updatedAt: '2026-05-30T00:00:00Z',
-      workspaceContextId: 'workspace-1',
-    });
 
     renderWithAuth(<NotesPage />, authSession);
+
+    const dayInput = await screen.findByLabelText('Day', { selector: 'input' });
+    fireEvent.change(dayInput, { target: { value: '2026-05-30' } });
+
+    await waitFor(() => expect(mockedFetchNotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ date: '2026-05-30' }),
+      expect.any(AbortSignal),
+    ));
+    expect(screen.getByRole('link', { name: /new note/i })).toHaveAttribute('href', '/notes/new?date=2026-05-30');
+  });
+
+  it('creates a note from the dedicated new note page', async () => {
+    const user = userEvent.setup();
+    mockedCreateNote.mockResolvedValue(note);
+
+    renderWithAuth(<NewNotePage />, { ...authSession, initialPath: '/notes/new?date=2026-05-30' });
 
     await user.type(screen.getByLabelText(/title/i), 'First note');
     await user.type(screen.getByLabelText(/body/i), 'A useful memory');
@@ -90,118 +116,33 @@ describe('NotesPage', () => {
 
     await waitFor(() => expect(mockedCreateNote).toHaveBeenCalledWith({
       body: 'A useful memory',
+      noteDate: '2026-05-30',
       title: 'First note',
     }));
-    expect(screen.getByDisplayValue('First note')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('A useful memory')).toBeInTheDocument();
   });
 
-  it('autosaves edits and shows saved feedback', async () => {
-    mockedFetchNotes.mockResolvedValue([{
-      archivedAt: null,
-      body: 'Old body',
-      createdAt: '2026-05-30T00:00:00Z',
-      editorMode: 'RICH_TEXT',
-      favorite: false,
-      id: 'note-1',
-      linkedResources: '',
-      ownerAccountId: 'account-1',
-      pinned: false,
-      tags: '',
-      title: 'Editable note',
-      updatedAt: '2026-05-30T00:00:00Z',
-      workspaceContextId: 'workspace-1',
-    }]);
-    mockedUpdateNote.mockResolvedValue({
-      body: 'Updated body',
-      archivedAt: null,
-      createdAt: '2026-05-30T00:00:00Z',
-      editorMode: 'RICH_TEXT',
-      favorite: false,
-      id: 'note-1',
-      linkedResources: '',
-      ownerAccountId: 'account-1',
-      pinned: false,
-      tags: '',
-      title: 'Editable note',
-      updatedAt: '2026-05-30T00:01:00Z',
-      workspaceContextId: 'workspace-1',
-    });
-
-    renderWithAuth(<NotesPage />, authSession);
-
-    const body = await screen.findByLabelText(/body for editable note/i);
-    fireEvent.change(body, { target: { value: 'Updated body' } });
-
-    expect(screen.getByText('Saving')).toBeInTheDocument();
-
-    await waitFor(() => expect(mockedUpdateNote).toHaveBeenLastCalledWith('note-1', {
-      body: 'Updated body',
-      title: 'Editable note',
-    }), { timeout: 2000 });
-    expect(await screen.findByText('Saved')).toBeInTheDocument();
-  });
-
-  it('keeps typed content visible when autosave fails', async () => {
-    mockedFetchNotes.mockResolvedValue([{
-      archivedAt: null,
-      body: 'Old body',
-      createdAt: '2026-05-30T00:00:00Z',
-      editorMode: 'RICH_TEXT',
-      favorite: false,
-      id: 'note-1',
-      linkedResources: '',
-      ownerAccountId: 'account-1',
-      pinned: false,
-      tags: '',
-      title: 'Editable note',
-      updatedAt: '2026-05-30T00:00:00Z',
-      workspaceContextId: 'workspace-1',
-    }]);
-    mockedUpdateNote.mockRejectedValue(new Error('nope'));
-
-    renderWithAuth(<NotesPage />, authSession);
-
-    const title = await screen.findByLabelText(/title for editable note/i);
-    fireEvent.change(title, { target: { value: 'Local draft' } });
-
-    await waitFor(() => expect(mockedUpdateNote).toHaveBeenCalled(), { timeout: 2000 });
-    expect(screen.getByDisplayValue('Local draft')).toBeInTheDocument();
-    expect(await screen.findByText('Save failed')).toBeInTheDocument();
-  });
-
-  it('organizes, filters, archives, and restores notes', async () => {
+  it('shows compact note cards and supports filters plus organization actions', async () => {
     const user = userEvent.setup();
-    const note = {
-      archivedAt: null,
-      body: 'Project planning details',
-      createdAt: '2026-05-30T00:00:00Z',
-      editorMode: 'RICH_TEXT' as const,
-      favorite: false,
-      id: 'note-1',
-      linkedResources: '',
-      ownerAccountId: 'account-1',
-      pinned: false,
-      tags: '',
-      title: 'Organized note',
-      updatedAt: '2026-05-30T00:00:00Z',
-      workspaceContextId: 'workspace-1',
-    };
     mockedFetchNotes.mockResolvedValue([note]);
-    mockedOrganizeNote.mockResolvedValue({ ...note, favorite: true, pinned: true, tags: 'planning', editorMode: 'MARKDOWN' });
-    mockedArchiveNote.mockResolvedValue({ ...note, archivedAt: '2026-05-30T00:01:00Z' });
+    mockedOrganizeNote.mockResolvedValue({ ...note, favorite: true, pinned: true });
+    mockedArchiveNote.mockResolvedValue({ ...note, archivedAt: '2026-06-01T08:30:00Z' });
     mockedRestoreNote.mockResolvedValue(note);
 
     renderWithAuth(<NotesPage />, authSession);
 
-    await user.click(await screen.findByRole('button', { name: /mark favorite/i }));
+    expect(await screen.findByRole('heading', { name: /organized note/i })).toBeInTheDocument();
+    expect(screen.getByText(/compact preview/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /mark favorite/i }));
     await waitFor(() => expect(mockedOrganizeNote).toHaveBeenCalledWith('note-1', expect.objectContaining({ favorite: true })));
 
     await user.click(screen.getByRole('button', { name: /pinned/i }));
-    await user.selectOptions(screen.getByLabelText(/mode/i), 'MARKDOWN');
     await user.type(screen.getByLabelText(/search/i), 'planning');
 
-    await waitFor(() => expect(mockedFetchNotes).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'planning' }), expect.any(AbortSignal)));
+    await waitFor(() => expect(mockedFetchNotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ date: currentDateKey(), q: 'planning' }),
+      expect.any(AbortSignal),
+    ));
 
     await user.click(screen.getByRole('button', { name: /archive/i }));
     await waitFor(() => expect(mockedArchiveNote).toHaveBeenCalledWith('note-1'));

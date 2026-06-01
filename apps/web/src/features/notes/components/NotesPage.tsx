@@ -1,36 +1,62 @@
-import { Archive, FileText, Plus, RotateCcw, Star } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Archive, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RotateCcw, Star } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
-import { archiveNote, createNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
+import { archiveNote, createNote, fetchNotes, organizeNote, restoreNote } from '../api/notesApi';
 import type { Note } from '../types';
 
-type SaveState = {
-  message: string;
-  status: 'idle' | 'saving' | 'saved' | 'error';
-};
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'full',
+});
+
+function todayKey() {
+  return toDateKey(new Date());
+}
+
+function toDateKey(date: Date) {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 10);
+}
+
+function parseDateKey(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return todayKey();
+  }
+
+  return value;
+}
+
+function shiftDate(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return toDateKey(date);
+}
+
+function displayDate(value: string) {
+  return dateFormatter.format(new Date(`${value}T00:00:00`));
+}
+
+function notePreview(note: Note) {
+  const text = note.body.trim();
+  if (!text) {
+    return 'No body text';
+  }
+
+  return text.length > 150 ? `${text.slice(0, 147)}...` : text;
+}
 
 export function NotesPage() {
   const { activeWorkspace, authenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDate = parseDateKey(searchParams.get('date'));
   const [notes, setNotes] = useState<Note[]>([]);
-  const notesRef = useRef<Note[]>([]);
-  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [filters, setFilters] = useState({ archived: false, favorite: false, pinned: false, q: '', tag: '' });
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    notesRef.current = notes;
-  }, [notes]);
-
-  useEffect(() => () => {
-    Object.values(saveTimers.current).forEach(clearTimeout);
-  }, []);
+  const headingDate = useMemo(() => displayDate(selectedDate), [selectedDate]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -42,49 +68,30 @@ export function NotesPage() {
     setIsLoading(true);
     setError(null);
 
-    fetchNotes(filters, controller.signal)
+    fetchNotes({ ...filters, date: selectedDate }, controller.signal)
       .then(setNotes)
       .catch(() => setError('Notes could not be loaded.'))
       .finally(() => setIsLoading(false));
 
     return () => controller.abort();
-  }, [authenticated, activeWorkspace?.id, filters.archived, filters.favorite, filters.pinned, filters.q, filters.tag]);
+  }, [
+    authenticated,
+    activeWorkspace?.id,
+    selectedDate,
+    filters.archived,
+    filters.favorite,
+    filters.pinned,
+    filters.q,
+    filters.tag,
+  ]);
 
-  async function submitNote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedTitle = title.trim();
-
-    if (!trimmedTitle) {
-      setError('Title is required.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const note = await createNote({ body, title: trimmedTitle });
-      setNotes((current) => [note, ...current]);
-      setSaveStates((current) => ({
-        ...current,
-        [note.id]: { message: 'Saved', status: 'saved' },
-      }));
-      setTitle('');
-      setBody('');
-    } catch {
-      setError('Note could not be saved.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  function setSelectedDate(value: string) {
+    setSearchParams(value === todayKey() ? {} : { date: value });
   }
 
-  async function updateOrganization(note: Note, patch: Partial<Pick<Note, 'editorMode' | 'favorite' | 'linkedResources' | 'pinned' | 'tags'>>) {
+  async function updateOrganization(note: Note, patch: Partial<Pick<Note, 'favorite' | 'pinned'>>) {
     const draft = { ...note, ...patch };
     setNotes((current) => current.map((item) => (item.id === note.id ? draft : item)));
-    setSaveStates((current) => ({
-      ...current,
-      [note.id]: { message: 'Saving', status: 'saving' },
-    }));
 
     try {
       const saved = await organizeNote(note.id, {
@@ -95,15 +102,9 @@ export function NotesPage() {
         tags: draft.tags,
       });
       setNotes((current) => current.map((item) => (item.id === saved.id ? saved : item)));
-      setSaveStates((current) => ({
-        ...current,
-        [saved.id]: { message: 'Saved', status: 'saved' },
-      }));
     } catch {
-      setSaveStates((current) => ({
-        ...current,
-        [note.id]: { message: 'Save failed', status: 'error' },
-      }));
+      setError('Note could not be updated.');
+      setNotes((current) => current.map((item) => (item.id === note.id ? note : item)));
     }
   }
 
@@ -112,71 +113,7 @@ export function NotesPage() {
       const saved = note.archivedAt ? await restoreNote(note.id) : await archiveNote(note.id);
       setNotes((current) => current.filter((item) => item.id !== saved.id));
     } catch {
-      setSaveStates((current) => ({
-        ...current,
-        [note.id]: { message: 'Save failed', status: 'error' },
-      }));
-    }
-  }
-
-  function editNote(noteId: string, field: 'body' | 'title', value: string) {
-    const currentNote = notesRef.current.find((note) => note.id === noteId);
-    if (!currentNote) {
-      return;
-    }
-
-    const draft = {
-      ...currentNote,
-      [field]: value,
-    };
-
-    setNotes((current) => current.map((note) => (note.id === noteId ? draft : note)));
-    scheduleSave(draft);
-  }
-
-  function scheduleSave(note: Note) {
-    setSaveStates((current) => ({
-      ...current,
-      [note.id]: { message: 'Saving', status: 'saving' },
-    }));
-
-    clearTimeout(saveTimers.current[note.id]);
-    saveTimers.current[note.id] = setTimeout(() => {
-      void saveNote(note);
-    }, 650);
-  }
-
-  async function saveNote(draft: Note) {
-    if (!draft.title.trim()) {
-      setSaveStates((current) => ({
-        ...current,
-        [draft.id]: { message: 'Title is required', status: 'error' },
-      }));
-      return;
-    }
-
-    try {
-      const saved = await updateNote(draft.id, { body: draft.body, title: draft.title.trim() });
-      setNotes((current) => current.map((note) => {
-        if (note.id !== saved.id) {
-          return note;
-        }
-
-        if (note.title !== draft.title || note.body !== draft.body) {
-          return note;
-        }
-
-        return saved;
-      }));
-      setSaveStates((current) => ({
-        ...current,
-        [saved.id]: { message: 'Saved', status: 'saved' },
-      }));
-    } catch {
-      setSaveStates((current) => ({
-        ...current,
-        [draft.id]: { message: 'Save failed', status: 'error' },
-      }));
+      setError('Note could not be updated.');
     }
   }
 
@@ -194,10 +131,47 @@ export function NotesPage() {
 
   return (
     <div className="route-stack">
-      <header className="route-heading">
-        <p className="eyebrow">{activeWorkspace?.name ?? 'Active'} workspace</p>
-        <h2>Notes</h2>
+      <header className="notes-header">
+        <div>
+          <p className="eyebrow">{activeWorkspace?.name ?? 'Active'} workspace</p>
+          <h2>Notes for {headingDate}</h2>
+        </div>
+        <Link className="ui-link-button ui-link-button--primary" to={`/notes/new?date=${selectedDate}`}>
+          <Plus aria-hidden="true" size={18} />
+          <span>New note</span>
+        </Link>
       </header>
+
+      <section className="note-daybar" aria-label="Note day">
+        <Button
+          aria-label="Previous day"
+          icon={<ChevronLeft aria-hidden="true" size={18} />}
+          onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}
+          variant="secondary"
+        >
+          Previous
+        </Button>
+        <label className="field note-daybar__date" htmlFor="note-date">
+          <span className="field__label">Day</span>
+          <input
+            id="note-date"
+            onChange={(event) => setSelectedDate(event.target.value)}
+            type="date"
+            value={selectedDate}
+          />
+        </label>
+        <Button
+          aria-label="Next day"
+          icon={<ChevronRight aria-hidden="true" size={18} />}
+          onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+          variant="secondary"
+        >
+          Next
+        </Button>
+        <Button icon={<CalendarDays aria-hidden="true" size={18} />} onClick={() => setSelectedDate(todayKey())}>
+          Today
+        </Button>
+      </section>
 
       <section className="note-filters" aria-label="Note filters">
         <Field
@@ -240,108 +214,29 @@ export function NotesPage() {
         </label>
       </section>
 
-      <form className="note-composer" onSubmit={submitNote}>
-        <Field
-          error={error && !title.trim() ? error : undefined}
-          label="Title"
-          maxLength={180}
-          name="note-title"
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Meeting notes, idea, or useful context"
-          value={title}
-        />
-        <label className="field" htmlFor="note-body">
-          <span className="field__label">Body</span>
-          <textarea
-            id="note-body"
-            maxLength={20000}
-            name="note-body"
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="Write the details here"
-            value={body}
-          />
-        </label>
-        <Button disabled={isSubmitting} icon={<Plus aria-hidden="true" size={18} />} type="submit" variant="primary">
-          {isSubmitting ? 'Saving' : 'Create note'}
-        </Button>
-      </form>
-
-      {error && title.trim() ? <p className="session-warning">{error}</p> : null}
-
+      {error ? <p className="session-warning">{error}</p> : null}
       {isLoading ? <LoadingState label="Loading notes" /> : null}
 
       {!isLoading && notes.length === 0 ? (
         <EmptyState
-          description="Create the first note for this workspace."
+          description="Choose a day or create a note for this date."
           icon={<FileText aria-hidden="true" size={24} />}
-          title={filters.q || filters.tag || filters.favorite || filters.pinned || filters.archived ? 'No matching notes' : 'No notes yet'}
+          title={filters.q || filters.tag || filters.favorite || filters.pinned || filters.archived ? 'No matching notes' : 'No notes for this day'}
         />
       ) : null}
 
       {notes.length > 0 ? (
-        <section className="notes-list" aria-label="Workspace notes">
+        <section className="notes-list notes-list--compact" aria-label="Workspace notes">
           {notes.map((note) => (
-            <article className="note-card" key={note.id}>
-              <label className="field" htmlFor={`note-title-${note.id}`}>
-                <span className="field__label">Title</span>
-                <input
-                  aria-label={`Title for ${note.title || 'Untitled note'}`}
-                  id={`note-title-${note.id}`}
-                  maxLength={180}
-                  onChange={(event) => editNote(note.id, 'title', event.target.value)}
-                  value={note.title}
-                />
-              </label>
-              <label className="field" htmlFor={`note-body-${note.id}`}>
-                <span className="field__label">Body</span>
-                <textarea
-                  aria-label={`Body for ${note.title || 'Untitled note'}`}
-                  id={`note-body-${note.id}`}
-                  maxLength={20000}
-                  onChange={(event) => editNote(note.id, 'body', event.target.value)}
-                  value={note.body}
-                />
-              </label>
-              <div className="note-card__tools">
-                <Field
-                  aria-label={`Tags for ${note.title || 'Untitled note'}`}
-                  label="Tags"
-                  name={`note-tags-${note.id}`}
-                  onBlur={() => void updateOrganization(note, { tags: note.tags })}
-                  onChange={(event) => setNotes((current) => current.map((item) => (
-                    item.id === note.id ? { ...item, tags: event.target.value } : item
-                  )))}
-                  placeholder="planning, work"
-                  value={note.tags}
-                />
-                <label className="field" htmlFor={`note-mode-${note.id}`}>
-                  <span className="field__label">Mode</span>
-                  <select
-                    id={`note-mode-${note.id}`}
-                    onChange={(event) => void updateOrganization(note, { editorMode: event.target.value as Note['editorMode'] })}
-                    value={note.editorMode}
-                  >
-                    <option value="RICH_TEXT">Rich text - meeting notes and structured ideas</option>
-                    <option value="MARKDOWN">Markdown - headings, lists, and technical notes</option>
-                    <option value="JOURNAL">Journal - reflective personal notes</option>
-                  </select>
-                </label>
-                <Field
-                  aria-label={`Linked resources for ${note.title || 'Untitled note'}`}
-                  label="Links"
-                  name={`note-links-${note.id}`}
-                  onBlur={() => void updateOrganization(note, { linkedResources: note.linkedResources })}
-                  onChange={(event) => setNotes((current) => current.map((item) => (
-                    item.id === note.id ? { ...item, linkedResources: event.target.value } : item
-                  )))}
-                  placeholder="PLAN:123, PROJECT:abc"
-                  value={note.linkedResources}
-                />
+            <article className="note-card note-card--compact" key={note.id}>
+              <div className="note-card__heading">
+                <h3>{note.title}</h3>
+                {note.pinned ? <span className="note-badge">Pinned</span> : null}
               </div>
+              <p>{notePreview(note)}</p>
+              {note.tags ? <p className="note-card__tags">{note.tags}</p> : null}
               <div className="note-card__meta">
-                <span className={`save-status save-status--${saveStates[note.id]?.status ?? 'idle'}`} role="status">
-                  {saveStates[note.id]?.message ?? 'Saved'}
-                </span>
+                <time dateTime={note.updatedAt}>{new Date(note.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>
                 <div className="note-card__actions">
                   <Button
                     aria-label={note.favorite ? 'Remove favorite' : 'Mark favorite'}
@@ -365,12 +260,104 @@ export function NotesPage() {
                     {note.archivedAt ? 'Restore' : 'Archive'}
                   </Button>
                 </div>
-                <time dateTime={note.updatedAt}>{new Date(note.updatedAt).toLocaleString()}</time>
               </div>
             </article>
           ))}
         </section>
       ) : null}
+    </div>
+  );
+}
+
+export function NewNotePage() {
+  const { activeWorkspace, authenticated } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [noteDate, setNoteDate] = useState(parseDateKey(searchParams.get('date')));
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function submitNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedTitle = title.trim();
+
+    if (!trimmedTitle) {
+      setError('Title is required.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await createNote({ body, noteDate, title: trimmedTitle });
+      navigate(noteDate === todayKey() ? '/notes' : `/notes?date=${noteDate}`);
+    } catch {
+      setError('Note could not be saved.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="route-stack">
+        <header className="route-heading">
+          <p className="eyebrow">Core workspace</p>
+          <h2>New note</h2>
+        </header>
+        <SignedOutPrompt />
+      </div>
+    );
+  }
+
+  return (
+    <div className="route-stack">
+      <header className="notes-header">
+        <div>
+          <p className="eyebrow">{activeWorkspace?.name ?? 'Active'} workspace</p>
+          <h2>New note</h2>
+        </div>
+        <Link className="ui-link-button" to={noteDate === todayKey() ? '/notes' : `/notes?date=${noteDate}`}>
+          Back to notes
+        </Link>
+      </header>
+
+      <form className="note-composer note-composer--focused" onSubmit={submitNote}>
+        <Field
+          label="Day"
+          name="new-note-date"
+          onChange={(event) => setNoteDate(event.target.value)}
+          type="date"
+          value={noteDate}
+        />
+        <Field
+          error={error && !title.trim() ? error : undefined}
+          label="Title"
+          maxLength={180}
+          name="note-title"
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Meeting notes, idea, or useful context"
+          value={title}
+        />
+        <label className="field" htmlFor="note-body">
+          <span className="field__label">Body</span>
+          <textarea
+            id="note-body"
+            maxLength={20000}
+            name="note-body"
+            onChange={(event) => setBody(event.target.value)}
+            placeholder="Write the details here"
+            value={body}
+          />
+        </label>
+        {error && title.trim() ? <p className="session-warning">{error}</p> : null}
+        <Button disabled={isSubmitting} icon={<Plus aria-hidden="true" size={18} />} type="submit" variant="primary">
+          {isSubmitting ? 'Saving' : 'Create note'}
+        </Button>
+      </form>
     </div>
   );
 }
