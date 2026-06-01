@@ -80,6 +80,18 @@ class NoteServiceUnitTest {
 	}
 
 	@Test
+	void getsExistingWorkspaceNote() {
+		UUID workspaceContextId = UUID.randomUUID();
+		Note existing = Note.create(UUID.randomUUID(), workspaceContextId, "Readable", "Body", NOTE_DATE, Instant.EPOCH);
+		when(this.notes.findByIdAndWorkspaceContextId(existing.getId(), workspaceContextId)).thenReturn(Optional.of(existing));
+
+		NoteSummary result = this.service.get(existing.getId(), workspaceContextId);
+
+		assertThat(result.id()).isEqualTo(existing.getId());
+		assertThat(result.title()).isEqualTo("Readable");
+	}
+
+	@Test
 	void archivesRestoresAndFiltersNotes() {
 		UUID workspaceContextId = UUID.randomUUID();
 		Note active = Note.create(UUID.randomUUID(), workspaceContextId, "Active", "Search body", NOTE_DATE, Instant.EPOCH);

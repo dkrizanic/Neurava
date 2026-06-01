@@ -1,12 +1,14 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Route, Routes } from 'react-router';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { archiveNote, createNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
-import { NewNotePage, NotesPage } from './NotesPage';
+import { archiveNote, createNote, fetchNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
+import { EditNotePage, NewNotePage, NotesPage } from './NotesPage';
 
 vi.mock('../api/notesApi', () => ({
   createNote: vi.fn(),
+  fetchNote: vi.fn(),
   fetchNotes: vi.fn(),
   archiveNote: vi.fn(),
   organizeNote: vi.fn(),
@@ -16,6 +18,7 @@ vi.mock('../api/notesApi', () => ({
 
 const mockedArchiveNote = vi.mocked(archiveNote);
 const mockedCreateNote = vi.mocked(createNote);
+const mockedFetchNote = vi.mocked(fetchNote);
 const mockedFetchNotes = vi.mocked(fetchNotes);
 const mockedOrganizeNote = vi.mocked(organizeNote);
 const mockedRestoreNote = vi.mocked(restoreNote);
@@ -62,6 +65,7 @@ function currentDateKey() {
 describe('NotesPage', () => {
   beforeEach(() => {
     mockedCreateNote.mockReset();
+    mockedFetchNote.mockReset();
     mockedFetchNotes.mockReset();
     mockedArchiveNote.mockReset();
     mockedOrganizeNote.mockReset();
@@ -132,6 +136,7 @@ describe('NotesPage', () => {
 
     expect(await screen.findByRole('heading', { name: /organized note/i })).toBeInTheDocument();
     expect(screen.getByText(/compact preview/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /organized note/i })).toHaveAttribute('href', '/notes/note-1');
 
     await user.click(screen.getByRole('button', { name: /mark favorite/i }));
     await waitFor(() => expect(mockedOrganizeNote).toHaveBeenCalledWith('note-1', expect.objectContaining({ favorite: true })));
@@ -146,5 +151,35 @@ describe('NotesPage', () => {
 
     await user.click(screen.getByRole('button', { name: /archive/i }));
     await waitFor(() => expect(mockedArchiveNote).toHaveBeenCalledWith('note-1'));
+  });
+
+  it('loads and saves an existing note on the edit page', async () => {
+    const user = userEvent.setup();
+    mockedFetchNote.mockResolvedValue(note);
+    mockedUpdateNote.mockResolvedValue({
+      ...note,
+      body: 'Updated body',
+      title: 'Updated note',
+      updatedAt: '2026-06-01T08:30:00Z',
+    });
+
+    renderWithAuth(
+      <Routes>
+        <Route element={<EditNotePage />} path="/notes/:noteId" />
+      </Routes>,
+      { ...authSession, initialPath: '/notes/note-1' },
+    );
+
+    expect(await screen.findByDisplayValue('Organized note')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText(/title/i));
+    await user.type(screen.getByLabelText(/title/i), 'Updated note');
+    await user.clear(screen.getByLabelText(/body/i));
+    await user.type(screen.getByLabelText(/body/i), 'Updated body');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mockedUpdateNote).toHaveBeenCalledWith('note-1', {
+      body: 'Updated body',
+      title: 'Updated note',
+    }));
   });
 });

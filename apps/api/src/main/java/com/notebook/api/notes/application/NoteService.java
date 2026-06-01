@@ -43,10 +43,14 @@ public class NoteService {
 				.toList();
 	}
 
+	@Transactional(readOnly = true)
+	public NoteSummary get(UUID noteId, UUID workspaceContextId) {
+		return NoteSummary.from(findWorkspaceNote(noteId, workspaceContextId));
+	}
+
 	@Transactional
 	public NoteSummary update(UUID noteId, UUID workspaceContextId, String title, String body) {
-		Note note = this.notes.findByIdAndWorkspaceContextId(noteId, workspaceContextId)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found."));
+		Note note = findWorkspaceNote(noteId, workspaceContextId);
 		note.update(title, body, Instant.now());
 		publishContentChanged(note);
 		return NoteSummary.from(note);

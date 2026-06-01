@@ -38,6 +38,22 @@ export async function fetchNotes(filters?: NoteFilters, signal?: AbortSignal): P
   return response.json() as Promise<Note[]>;
 }
 
+export async function fetchNote(noteId: string, signal?: AbortSignal): Promise<Note> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/notes/${noteId}`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to load note');
+  }
+
+  return response.json() as Promise<Note>;
+}
+
 export async function createNote(input: { body: string; noteDate: string; title: string }): Promise<Note> {
   const response = await fetch(`${apiBaseUrl}/api/v1/notes`, {
     body: JSON.stringify(input),

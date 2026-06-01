@@ -55,6 +55,32 @@ class NoteApiFunctionalTest {
 	}
 
 	@Test
+	void signedInUserGetsWorkspaceNote() throws Exception {
+		String response = this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"title\":\"Readable\",\"body\":\"Open me\"}")
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "read-note-user");
+							attributes.put("email", "read-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		String noteId = response.replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes/" + noteId)
+						.with(oauth2Login().attributes(attributes -> {
+							attributes.put("sub", "read-note-user");
+							attributes.put("email", "read-note@example.com");
+						})))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(noteId))
+				.andExpect(jsonPath("$.title").value("Readable"))
+				.andExpect(jsonPath("$.body").value("Open me"));
+	}
+
+	@Test
 	void noteCreationValidatesTitle() throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)

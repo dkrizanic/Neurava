@@ -16,6 +16,9 @@ const NotesPage = lazy(() =>
 const NewNotePage = lazy(() =>
   import('../features/notes/components/NotesPage').then((module) => ({ default: module.NewNotePage })),
 );
+const EditNotePage = lazy(() =>
+  import('../features/notes/components/NotesPage').then((module) => ({ default: module.EditNotePage })),
+);
 const AssistantPage = lazy(() =>
   import('../features/assistant/components/AssistantPage').then((module) => ({ default: module.AssistantPage })),
 );
@@ -48,6 +51,10 @@ export const router = createBrowserRouter([
       {
         element: withRouteLoading(<NewNotePage />),
         path: 'notes/new',
+      },
+      {
+        element: withRouteLoading(<EditNotePage />),
+        path: 'notes/:noteId',
       },
       {
         element: withRouteLoading(<AssistantPage />),

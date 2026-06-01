@@ -60,6 +60,12 @@ class NoteController {
 		return this.notes.create(accountId, workspaceId, request.title(), request.body(), request.noteDate());
 	}
 
+	@GetMapping("/{noteId}")
+	NoteSummary get(Authentication authentication, @PathVariable UUID noteId) {
+		UUID accountId = this.accounts.createOrUpdateAccountIdFrom(authentication);
+		return this.notes.get(noteId, activeWorkspaceId(accountId));
+	}
+
 	@PatchMapping("/{noteId}/organization")
 	NoteSummary organize(Authentication authentication, @PathVariable UUID noteId,
 			@Valid @RequestBody OrganizeNoteRequest request) {

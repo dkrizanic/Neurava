@@ -793,6 +793,15 @@ p {
   overflow-wrap: anywhere;
 }
 
+.note-card__link {
+  display: grid;
+  gap: 12px;
+}
+
+.note-card__link:hover h3 {
+  color: #0f766e;
+}
+
 .note-card__heading {
   align-items: start;
   display: flex;
