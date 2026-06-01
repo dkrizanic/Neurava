@@ -1,25 +1,22 @@
-import { Bot, FilePlus2, RotateCcw, Send, X } from 'lucide-react';
+import { Bot, RotateCcw, Send } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
-import { answerQuestion, previewCreateNote, summarizeHistory } from '../api/assistantApi';
+import { answerQuestion } from '../api/assistantApi';
 import type {
   AssistantMessage,
-  AssistantMode,
   SourceReference,
-  SummarySections,
 } from '../types';
 
 export function AssistantPage() {
   const { activeWorkspace, authenticated } = useAuth();
-  const [mode, setMode] = useState<AssistantMode>('answer');
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastRequest, setLastRequest] = useState<{ mode: AssistantMode; text: string } | null>(null);
+  const [lastRequest, setLastRequest] = useState<string | null>(null);
   const latestMessage = messages.at(-1);
   const canRetry = Boolean(
     lastRequest
@@ -30,10 +27,10 @@ export function AssistantPage() {
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await sendPrompt(mode, question);
+    await sendPrompt(question);
   }
 
-  async function sendPrompt(requestMode: AssistantMode, rawPrompt: string) {
+  async function sendPrompt(rawPrompt: string) {
     const trimmedPrompt = rawPrompt.trim();
     if (!trimmedPrompt) {
       setError('Question is required.');
@@ -42,56 +39,39 @@ export function AssistantPage() {
 
     setError(null);
 
-    if (requestMode !== 'preview' && isAmbiguous(trimmedPrompt)) {
+    if (isAmbiguous(trimmedPrompt)) {
       appendMessages([
-        userMessage(requestMode, trimmedPrompt),
-        assistantTextMessage(requestMode, 'clarification', 'Tell me a little more so I can search the right notebook context. Try a topic, decision, person, or remembered phrase.'),
+        userMessage(trimmedPrompt),
+        assistantTextMessage('clarification', 'Tell me a little more so I can search the right notebook context. Try a topic, decision, person, or remembered phrase.'),
       ]);
       setQuestion(trimmedPrompt);
       return;
     }
 
-    setLastRequest({ mode: requestMode, text: trimmedPrompt });
-    appendMessages([userMessage(requestMode, trimmedPrompt)]);
+    setLastRequest(trimmedPrompt);
+    appendMessages([userMessage(trimmedPrompt)]);
     setQuestion('');
     setIsLoading(true);
 
     try {
-      if (requestMode === 'answer') {
-        const answer = await answerQuestion(trimmedPrompt);
-        appendMessages([{ answer, id: messageId(), mode: 'answer', role: 'assistant' }]);
-      } else if (requestMode === 'summary') {
-        const summary = await summarizeHistory(trimmedPrompt);
-        appendMessages([{ id: messageId(), mode: 'summary', role: 'assistant', summary }]);
-      } else {
-        const preview = await previewCreateNote(trimmedPrompt);
-        appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
-      }
+      const answer = await answerQuestion(trimmedPrompt);
+      appendMessages([{ answer, id: messageId(), role: 'assistant' }]);
     } catch {
-      appendMessages([assistantTextMessage(requestMode, 'error', errorMessageFor(requestMode))]);
+      appendMessages([assistantTextMessage('error', 'Assistant response could not be loaded.')]);
     } finally {
       setIsLoading(false);
     }
-  }
-
-  function changeMode(nextMode: AssistantMode) {
-    setMode(nextMode);
-    setError(null);
   }
 
   async function retryLastRequest() {
     if (!lastRequest || isLoading) {
       return;
     }
-    await sendPrompt(lastRequest.mode, lastRequest.text);
+    await sendPrompt(lastRequest);
   }
 
   function appendMessages(nextMessages: AssistantMessage[]) {
     setMessages((current) => [...current, ...nextMessages]);
-  }
-
-  function removeMessage(messageIdToRemove: string) {
-    setMessages((current) => current.filter((message) => message.id !== messageIdToRemove));
   }
 
   if (!authenticated) {
@@ -111,32 +91,20 @@ export function AssistantPage() {
       <header className="route-heading">
         <p className="eyebrow">{activeWorkspace?.name ?? 'Active'} workspace</p>
         <h2>Assistant</h2>
-        <p>Ask questions, summarize history, and inspect source-backed responses in this session.</p>
+        <p>Ask anything about your workspace. The assistant will use your notes as source context when it can.</p>
       </header>
-
-      <div className="assistant-mode" role="group" aria-label="Assistant mode">
-        <Button onClick={() => changeMode('answer')} type="button" variant={mode === 'answer' ? 'primary' : 'secondary'}>
-          Answer
-        </Button>
-        <Button onClick={() => changeMode('summary')} type="button" variant={mode === 'summary' ? 'primary' : 'secondary'}>
-          Summary
-        </Button>
-        <Button onClick={() => changeMode('preview')} type="button" variant={mode === 'preview' ? 'primary' : 'secondary'}>
-          Preview
-        </Button>
-      </div>
 
       <section className="assistant-thread" aria-label="Assistant conversation">
         {messages.length === 0 ? (
           <div className="assistant-thread__empty">
             <Bot aria-hidden="true" size={24} />
-            <p>Start with a specific question or topic from the active workspace.</p>
+            <p>Start with a specific question, search request, or summary request from the active workspace.</p>
           </div>
         ) : null}
         {messages.map((message) => (
-          <AssistantMessageItem key={message.id} message={message} onCancelPreview={removeMessage} />
+          <AssistantMessageItem key={message.id} message={message} />
         ))}
-        {isLoading ? <LoadingState label={loadingLabelFor(mode)} /> : null}
+        {isLoading ? <LoadingState label="Thinking with your workspace context" /> : null}
       </section>
 
       {canRetry ? (
@@ -159,32 +127,26 @@ export function AssistantPage() {
       <form className="assistant-question" onSubmit={(event) => void submitQuestion(event)}>
         <Field
           error={error === 'Question is required.' ? error : undefined}
-          label={inputLabelFor(mode)}
-          maxLength={mode === 'preview' ? 4000 : 500}
+          label="Message"
+          maxLength={1000}
           name="assistant-question"
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder={placeholderFor(mode)}
+          placeholder="Ask, search, or summarize your notes"
           value={question}
         />
         <Button disabled={isLoading} icon={<Send aria-hidden="true" size={18} />} type="submit" variant="primary">
-          {buttonLabelFor(mode)}
+          Send
         </Button>
       </form>
     </div>
   );
 }
 
-function AssistantMessageItem({
-  message,
-  onCancelPreview,
-}: {
-  message: AssistantMessage;
-  onCancelPreview: (messageIdToRemove: string) => void;
-}) {
+function AssistantMessageItem({ message }: { message: AssistantMessage }) {
   if (message.role === 'user') {
     return (
       <article className="assistant-message assistant-message--user">
-        <p className="eyebrow">{inputLabelFor(message.mode)}</p>
+        <p className="eyebrow">You</p>
         <p>{message.text}</p>
       </article>
     );
@@ -199,112 +161,29 @@ function AssistantMessageItem({
     );
   }
 
-  if ('preview' in message) {
-    return (
-      <article className="assistant-message assistant-message--assistant" aria-label="AI change preview">
-        <p className="eyebrow">Preview only</p>
-        <h3>{message.preview.summary}</h3>
-        <dl className="assistant-preview">
-          <div>
-            <dt>Entity</dt>
-            <dd>{message.preview.entityType}</dd>
-          </div>
-          <div>
-            <dt>Change</dt>
-            <dd>{message.preview.changeType}</dd>
-          </div>
-          <div>
-            <dt>Title</dt>
-            <dd>{message.preview.preview.title}</dd>
-          </div>
-          <div>
-            <dt>Body</dt>
-            <dd>{message.preview.preview.body}</dd>
-          </div>
-          <div>
-            <dt>Tags</dt>
-            <dd>{message.preview.preview.tags || 'No tags suggested'}</dd>
-          </div>
-        </dl>
-        <div className="assistant-preview__actions">
-          <Button disabled icon={<FilePlus2 aria-hidden="true" size={16} />} type="button" variant="secondary">
-            Apply comes next
-          </Button>
-          <Button
-            icon={<X aria-hidden="true" size={16} />}
-            onClick={() => onCancelPreview(message.id)}
-            type="button"
-            variant="secondary"
-          >
-            Cancel
-          </Button>
-        </div>
-      </article>
-    );
-  }
-
-  if (message.mode === 'answer') {
-    return (
-      <article className="assistant-message assistant-message--assistant" aria-label="Source-aware answer">
-        {message.answer.enoughSourceContext ? (
-          <>
-            <p className="eyebrow">Answer</p>
-            <p>{message.answer.answer}</p>
-            <SourceReferences sources={message.answer.sources} />
-          </>
-        ) : (
-          <>
-            <p className="eyebrow">Not enough source context</p>
-            <p>{message.answer.answer}</p>
-          </>
-        )}
-      </article>
-    );
-  }
-
   return (
-    <article className="assistant-message assistant-message--assistant" aria-label="History summary">
-      {message.summary.enoughSourceContext ? (
+    <article className="assistant-message assistant-message--assistant" aria-label="Assistant answer">
+      {message.answer.enoughSourceContext ? (
         <>
-          <p className="eyebrow">Summary</p>
-          <SummarySectionList sections={message.summary.sections} />
-          <SourceReferences sources={message.summary.sources} />
+          <p className="eyebrow">Assistant</p>
+          <p>{message.answer.answer}</p>
+          <SourceReferences sources={message.answer.sources} />
         </>
       ) : (
         <>
           <p className="eyebrow">Not enough source context</p>
-          <SummarySectionList sections={message.summary.sections} />
+          <p>{message.answer.answer}</p>
         </>
       )}
     </article>
   );
 }
 
-function SummarySectionList({ sections }: { sections: SummarySections }) {
-  return (
-    <div className="summary-sections">
-      <SummarySection items={sections.keyEvents} title="Key Events" />
-      <SummarySection items={sections.decisions} title="Decisions" />
-      <SummarySection items={sections.unresolvedItems} title="Unresolved Items" />
-      <SummarySection items={sections.nextActions} title="Next Actions" />
-    </div>
-  );
-}
-
-function SummarySection({ items, title }: { items: string[]; title: string }) {
-  return (
-    <section>
-      <h3>{title}</h3>
-      <ul>
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 function SourceReferences({ sources }: { sources: SourceReference[] }) {
+  if (sources.length === 0) {
+    return null;
+  }
+
   return (
     <section className="assistant-sources" aria-label="Source references">
       <h3>Source References</h3>
@@ -329,62 +208,12 @@ function isAmbiguous(prompt: string) {
   return prompt.split(/\s+/).filter(Boolean).length < 2;
 }
 
-function userMessage(mode: AssistantMode, text: string): AssistantMessage {
-  return { id: messageId(), mode, role: 'user', text };
+function userMessage(text: string): AssistantMessage {
+  return { id: messageId(), role: 'user', text };
 }
 
-function assistantTextMessage(mode: AssistantMode, type: 'clarification' | 'error', text: string): AssistantMessage {
-  return { id: messageId(), mode, role: 'assistant', text, type };
-}
-
-function inputLabelFor(mode: AssistantMode) {
-  if (mode === 'answer') {
-    return 'Question';
-  }
-  if (mode === 'summary') {
-    return 'Summary topic';
-  }
-  return 'Note preview input';
-}
-
-function placeholderFor(mode: AssistantMode) {
-  if (mode === 'answer') {
-    return 'What did we decide about the API problem?';
-  }
-  if (mode === 'summary') {
-    return 'Summarize API planning';
-  }
-  return 'Paste messy notes or a rough idea to preview a clean note';
-}
-
-function buttonLabelFor(mode: AssistantMode) {
-  if (mode === 'answer') {
-    return 'Ask assistant';
-  }
-  if (mode === 'summary') {
-    return 'Summarize history';
-  }
-  return 'Preview note';
-}
-
-function loadingLabelFor(mode: AssistantMode) {
-  if (mode === 'answer') {
-    return 'Preparing source-aware answer';
-  }
-  if (mode === 'summary') {
-    return 'Preparing history summary';
-  }
-  return 'Preparing note preview';
-}
-
-function errorMessageFor(mode: AssistantMode) {
-  if (mode === 'answer') {
-    return 'Assistant answer could not be loaded.';
-  }
-  if (mode === 'summary') {
-    return 'History summary could not be loaded.';
-  }
-  return 'AI change preview could not be loaded.';
+function assistantTextMessage(type: 'clarification' | 'error', text: string): AssistantMessage {
+  return { id: messageId(), role: 'assistant', text, type };
 }
 
 function messageId() {

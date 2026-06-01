@@ -29,8 +29,6 @@ export type HistorySummary = {
   sources: SourceReference[];
 };
 
-export type AssistantMode = 'answer' | 'preview' | 'summary';
-
 export type AssistantActionName = 'answer_question' | 'search_memory' | 'summarize_history';
 
 export type AssistantActionResultByName = {
@@ -63,30 +61,16 @@ export type AssistantActionPreviewResponse = {
 export type AssistantMessage =
   | {
       id: string;
-      mode: AssistantMode;
       role: 'user';
       text: string;
     }
   | {
       answer: SourceAwareAnswer;
       id: string;
-      mode: 'answer';
       role: 'assistant';
     }
   | {
       id: string;
-      mode: 'summary';
-      role: 'assistant';
-      summary: HistorySummary;
-    }
-  | {
-      id: string;
-      preview: AssistantActionPreviewResponse;
-      role: 'assistant';
-    }
-  | {
-      id: string;
-      mode: AssistantMode;
       role: 'assistant';
       text: string;
       type: 'clarification' | 'error';
