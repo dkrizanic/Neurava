@@ -1,9 +1,10 @@
-import { Archive, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RotateCcw, Star } from 'lucide-react';
+import { Archive, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RotateCcw, Sparkles, Star } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
+import { applyGrammarFix, previewGrammarFix, type GrammarFixPreview } from '../api/noteAiApi';
 import { archiveNote, createNote, fetchNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
 import type { Note } from '../types';
 
@@ -291,6 +292,8 @@ export function EditNotePage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [grammarPreview, setGrammarPreview] = useState<GrammarFixPreview | null>(null);
+  const [isGrammarLoading, setIsGrammarLoading] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !noteId) {
@@ -345,11 +348,70 @@ export function EditNotePage() {
       setNote(saved);
       setTitle(saved.title);
       setBody(saved.body);
+      setGrammarPreview(null);
       navigate(saved.noteDate === todayKey() ? '/notes' : `/notes?date=${saved.noteDate}`);
     } catch {
       setError('Note could not be saved.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function previewGrammar() {
+    if (!noteId) {
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('Title is required.');
+      return;
+    }
+    if (!body.trim()) {
+      setError('Body is required for grammar fix.');
+      return;
+    }
+
+    setIsGrammarLoading(true);
+    setError(null);
+    try {
+      const preview = await previewGrammarFix({ body, noteId, title: trimmedTitle });
+      setGrammarPreview(preview);
+    } catch {
+      setError('Grammar fix could not be previewed.');
+    } finally {
+      setIsGrammarLoading(false);
+    }
+  }
+
+  async function applyGrammar() {
+    if (!noteId || !grammarPreview) {
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('Title is required.');
+      return;
+    }
+
+    setIsGrammarLoading(true);
+    setError(null);
+    try {
+      const saved = await applyGrammarFix({
+        body: grammarPreview.currentBody,
+        noteId,
+        proposedBody: grammarPreview.proposedBody,
+        title: trimmedTitle,
+      });
+      setNote(saved);
+      setTitle(saved.title);
+      setBody(saved.body);
+      setGrammarPreview(null);
+    } catch {
+      setError('Grammar fix could not be applied.');
+    } finally {
+      setIsGrammarLoading(false);
     }
   }
 
@@ -396,14 +458,50 @@ export function EditNotePage() {
               id="edit-note-body"
               maxLength={20000}
               name="edit-note-body"
-              onChange={(event) => setBody(event.target.value)}
+              onChange={(event) => {
+                setBody(event.target.value);
+                setGrammarPreview(null);
+              }}
               value={body}
             />
           </label>
+          <div className="note-composer__actions">
+            <Button
+              disabled={isGrammarLoading || !body.trim()}
+              icon={<Sparkles aria-hidden="true" size={18} />}
+              onClick={() => void previewGrammar()}
+              type="button"
+              variant="secondary"
+            >
+              {isGrammarLoading && !grammarPreview ? 'Checking' : 'Grammar fix'}
+            </Button>
+          </div>
+          {grammarPreview ? (
+            <section className="grammar-preview" aria-label="Grammar fix preview">
+              <div>
+                <h3>Current</h3>
+                <p>{grammarPreview.currentBody}</p>
+              </div>
+              <div>
+                <h3>Proposed</h3>
+                <p>{grammarPreview.proposedBody}</p>
+              </div>
+              <div className="grammar-preview__actions">
+                <Button disabled={isGrammarLoading} onClick={() => void applyGrammar()} type="button" variant="primary">
+                  {isGrammarLoading ? 'Applying' : 'Apply fix'}
+                </Button>
+                <Button disabled={isGrammarLoading} onClick={() => setGrammarPreview(null)} type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </div>
+            </section>
+          ) : null}
           {error && title.trim() ? <p className="session-warning">{error}</p> : null}
-          <Button disabled={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? 'Saving' : 'Save changes'}
-          </Button>
+          <div className="note-composer__actions">
+            <Button disabled={isSubmitting} type="submit" variant="primary">
+              {isSubmitting ? 'Saving' : 'Save changes'}
+            </Button>
+          </div>
         </form>
       ) : null}
     </div>

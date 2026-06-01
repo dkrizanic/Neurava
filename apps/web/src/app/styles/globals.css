@@ -533,6 +533,39 @@ p {
   justify-self: start;
 }
 
+.note-composer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.grammar-preview {
+  background: #f8fbfc;
+  border: 1px solid #cfe0e4;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 14px;
+}
+
+.grammar-preview h3 {
+  font-size: 0.82rem;
+  margin: 0 0 8px;
+}
+
+.grammar-preview p {
+  color: #17202a;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.grammar-preview__actions {
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
 .memory-search {
   align-items: end;
   background: #ffffff;
@@ -1072,7 +1105,8 @@ p {
   .notes-list,
   .note-filters,
   .note-daybar,
-  .note-card__tools {
+  .note-card__tools,
+  .grammar-preview {
     grid-template-columns: 1fr;
   }
 

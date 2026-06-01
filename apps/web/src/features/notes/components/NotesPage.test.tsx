@@ -3,8 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
+import { applyGrammarFix, previewGrammarFix } from '../api/noteAiApi';
 import { archiveNote, createNote, fetchNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
 import { EditNotePage, NewNotePage, NotesPage } from './NotesPage';
+
+vi.mock('../api/noteAiApi', () => ({
+  applyGrammarFix: vi.fn(),
+  previewGrammarFix: vi.fn(),
+}));
 
 vi.mock('../api/notesApi', () => ({
   createNote: vi.fn(),
@@ -21,6 +27,8 @@ const mockedCreateNote = vi.mocked(createNote);
 const mockedFetchNote = vi.mocked(fetchNote);
 const mockedFetchNotes = vi.mocked(fetchNotes);
 const mockedOrganizeNote = vi.mocked(organizeNote);
+const mockedApplyGrammarFix = vi.mocked(applyGrammarFix);
+const mockedPreviewGrammarFix = vi.mocked(previewGrammarFix);
 const mockedRestoreNote = vi.mocked(restoreNote);
 const mockedUpdateNote = vi.mocked(updateNote);
 
@@ -69,6 +77,8 @@ describe('NotesPage', () => {
     mockedFetchNotes.mockReset();
     mockedArchiveNote.mockReset();
     mockedOrganizeNote.mockReset();
+    mockedApplyGrammarFix.mockReset();
+    mockedPreviewGrammarFix.mockReset();
     mockedRestoreNote.mockReset();
     mockedUpdateNote.mockReset();
     vi.useRealTimers();
@@ -181,5 +191,51 @@ describe('NotesPage', () => {
       body: 'Updated body',
       title: 'Updated note',
     }));
+  });
+
+  it('previews and applies a grammar fix on the edit page', async () => {
+    const user = userEvent.setup();
+    mockedFetchNote.mockResolvedValue({
+      ...note,
+      body: 'i dont recieve teh update',
+      title: 'Grammar note',
+    });
+    mockedPreviewGrammarFix.mockResolvedValue({
+      currentBody: 'i dont recieve teh update',
+      noteId: 'note-1',
+      proposedBody: "I don't receive the update",
+    });
+    mockedApplyGrammarFix.mockResolvedValue({
+      ...note,
+      body: "I don't receive the update",
+      title: 'Grammar note',
+      updatedAt: '2026-06-01T08:45:00Z',
+    });
+
+    renderWithAuth(
+      <Routes>
+        <Route element={<EditNotePage />} path="/notes/:noteId" />
+      </Routes>,
+      { ...authSession, initialPath: '/notes/note-1' },
+    );
+
+    expect(await screen.findByDisplayValue('Grammar note')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /grammar fix/i }));
+
+    await waitFor(() => expect(mockedPreviewGrammarFix).toHaveBeenCalledWith({
+      body: 'i dont recieve teh update',
+      noteId: 'note-1',
+      title: 'Grammar note',
+    }));
+    expect(await screen.findByRole('region', { name: /grammar fix preview/i })).toHaveTextContent("I don't receive the update");
+
+    await user.click(screen.getByRole('button', { name: /apply fix/i }));
+    await waitFor(() => expect(mockedApplyGrammarFix).toHaveBeenCalledWith({
+      body: 'i dont recieve teh update',
+      noteId: 'note-1',
+      proposedBody: "I don't receive the update",
+      title: 'Grammar note',
+    }));
+    expect(await screen.findByDisplayValue("I don't receive the update")).toBeInTheDocument();
   });
 });

@@ -505,6 +505,66 @@ class NoteRetrievalIndexFunctionalTest {
 	}
 
 	@Test
+	void assistantGrammarFixPreviewsAppliesHistoryAndReverts() throws Exception {
+		String created = this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"title":"Grammar note","body":"i dont recieve teh update","noteDate":"2026-06-01"}
+								""")
+						.with(user("grammar-fix-user", "grammar-fix@example.com")))
+				.andExpect(status().isOk())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		UUID noteId = UUID.fromString(created.replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1"));
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-previews")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"fix_note_grammar","input":{"noteId":"%s","title":"Grammar note","body":"i dont recieve teh update"}}
+								""".formatted(noteId))
+						.with(user("grammar-fix-user", "grammar-fix@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.action").value("fix_note_grammar"))
+				.andExpect(jsonPath("$.changeType").value("update"))
+				.andExpect(jsonPath("$.preview.currentBody").value("i dont recieve teh update"))
+				.andExpect(jsonPath("$.preview.proposedBody").value("I don't receive the update"));
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"fix_note_grammar","input":{"noteId":"%s","title":"Grammar note","body":"i dont recieve teh update","proposedBody":"I don't receive the update"}}
+								""".formatted(noteId))
+						.with(user("grammar-fix-user", "grammar-fix@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.action").value("fix_note_grammar"))
+				.andExpect(jsonPath("$.changeType").value("update"))
+				.andExpect(jsonPath("$.entity.body").value("I don't receive the update"));
+
+		UUID historyId = this.jdbc.queryForObject("""
+				SELECT id
+				FROM ai_action_history
+				WHERE action = 'fix_note_grammar'
+				  AND entity_id = ?
+				ORDER BY created_at DESC
+				LIMIT 1
+				""", UUID.class, noteId);
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/ai/action-history")
+						.with(user("grammar-fix-user", "grammar-fix@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].action").value("fix_note_grammar"))
+				.andExpect(jsonPath("$[0].previousState").value(org.hamcrest.Matchers.containsString("i dont recieve")))
+				.andExpect(jsonPath("$[0].currentState").value(org.hamcrest.Matchers.containsString("I don't receive")));
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-history/{historyId}/revert", historyId)
+						.with(user("grammar-fix-user", "grammar-fix@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.revertSummary").value("Restored note text before the grammar fix."));
+		String body = this.jdbc.queryForObject("SELECT body FROM note WHERE id = ?", String.class, noteId);
+		assertThat(body).isEqualTo("i dont recieve teh update");
+	}
+
+	@Test
 	void assistantActionApplicationRejectsUnsupportedActionsWithProblemDetails() throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
 						.contentType(MediaType.APPLICATION_JSON)

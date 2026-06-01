@@ -43,7 +43,7 @@ export type AssistantActionResponse<TAction extends AssistantActionName> = {
   result: AssistantActionResultByName[TAction];
 };
 
-export type AssistantPreviewActionName = 'create_note';
+export type AssistantPreviewActionName = 'create_note' | 'fix_note_grammar';
 
 export type NoteChangePreview = {
   body: string;
@@ -53,7 +53,7 @@ export type NoteChangePreview = {
 
 export type AssistantActionPreviewResponse = {
   action: AssistantPreviewActionName;
-  changeType: 'create';
+  changeType: 'create' | 'update';
   entityType: 'note';
   preview: NoteChangePreview;
   summary: string;
@@ -61,7 +61,7 @@ export type AssistantActionPreviewResponse = {
 
 export type AssistantActionApplicationResponse = {
   action: AssistantPreviewActionName;
-  changeType: 'create';
+  changeType: 'create' | 'update';
   entity: Note;
   entityType: 'note';
   summary: string;
@@ -69,7 +69,7 @@ export type AssistantActionApplicationResponse = {
 
 export type AiActionHistorySummary = {
   action: AssistantPreviewActionName;
-  changeType: 'create';
+  changeType: 'create' | 'update';
   createdAt: string;
   currentState: string;
   entityId: EntityId;

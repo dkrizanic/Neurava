@@ -1,6 +1,7 @@
 package com.notebook.api.ai.application;
 
 import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_NOTE;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.FIX_NOTE_GRAMMAR;
 
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class AssistantActionApplicationService {
 			AssistantActionApplicationRequest request) {
 		return switch (request.action()) {
 			case CREATE_NOTE -> applyCreateNote(ownerAccountId, workspaceContextId, request.input());
+			case FIX_NOTE_GRAMMAR -> applyGrammarFix(ownerAccountId, workspaceContextId, request.input());
 			default -> throw new UnsupportedAssistantActionApplicationException(request.action());
 		};
 	}
@@ -52,6 +54,42 @@ public class AssistantActionApplicationService {
 				CREATE_NOTE,
 				"note",
 				"create",
+				summary,
+				entity);
+	}
+
+	private AssistantActionApplicationResponse applyGrammarFix(UUID ownerAccountId, UUID workspaceContextId,
+			Map<String, Object> inputNode) {
+		GrammarFixApplyInput input = validateInput(new GrammarFixApplyInput(
+				textField(inputNode, "noteId"),
+				textField(inputNode, "title"),
+				nullableTextField(inputNode, "body"),
+				textField(inputNode, "proposedBody")));
+		UUID noteId = uuidField(input.noteId(), "noteId");
+		NoteSummary existing = this.notes.get(noteId, workspaceContextId);
+		NoteSummary previous = new NoteSummary(
+				existing.id(),
+				existing.ownerAccountId(),
+				existing.workspaceContextId(),
+				input.title(),
+				input.body(),
+				existing.createdAt(),
+				existing.updatedAt(),
+				existing.noteDate(),
+				existing.archivedAt(),
+				existing.tags(),
+				existing.favorite(),
+				existing.pinned(),
+				existing.editorMode(),
+				existing.linkedResources());
+		NoteSummary entity = this.notes.update(noteId, workspaceContextId, input.title(), input.proposedBody());
+		String summary = "Applied grammar fix to \"%s\".".formatted(entity.title());
+		this.history.recordUpdatedNote(ownerAccountId, workspaceContextId, previous, entity, FIX_NOTE_GRAMMAR, summary);
+
+		return new AssistantActionApplicationResponse(
+				FIX_NOTE_GRAMMAR,
+				"note",
+				"update",
 				summary,
 				entity);
 	}
@@ -97,6 +135,15 @@ public class AssistantActionApplicationService {
 		} catch (java.time.format.DateTimeParseException exception) {
 			throw new InvalidAssistantActionInputException(
 					List.of(new AssistantActionInputError(fieldName, "Value must be an ISO date.")));
+		}
+	}
+
+	private static UUID uuidField(String value, String fieldName) {
+		try {
+			return UUID.fromString(value);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidAssistantActionInputException(
+					List.of(new AssistantActionInputError(fieldName, "Value must be a valid id.")));
 		}
 	}
 
