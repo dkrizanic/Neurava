@@ -339,7 +339,7 @@ class NoteRetrievalIndexFunctionalTest {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-previews")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"action":"create_note","input":{"text":"API follow-up\\nWe need to document the preview contract and apply flow."}}
+								{"action":"create_note","input":{"text":"API follow-up\\nWe need to document the preview contract and apply flow. Source: https://example.com/spec"}}
 								""")
 						.with(user("preview-note-user", "preview-note@example.com")))
 				.andExpect(status().isOk())
@@ -350,7 +350,8 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.summary").value(org.hamcrest.Matchers.containsString("Create a new note draft")))
 				.andExpect(jsonPath("$.preview.title").value("API follow-up"))
 				.andExpect(jsonPath("$.preview.body").value(org.hamcrest.Matchers.containsString("preview contract")))
-				.andExpect(jsonPath("$.preview.tags").value(org.hamcrest.Matchers.containsString("follow")));
+				.andExpect(jsonPath("$.preview.tags").value(org.hamcrest.Matchers.containsString("follow")))
+				.andExpect(jsonPath("$.preview.linkedResources").value("https://example.com/spec"));
 
 		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes").param("q", "preview contract")
 						.with(user("preview-note-user", "preview-note@example.com")))
@@ -392,7 +393,7 @@ class NoteRetrievalIndexFunctionalTest {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"action":"create_note","input":{"title":"Applied AI note","body":"Approved body from preview.","tags":"approved,preview","noteDate":"2026-06-01"}}
+								{"action":"create_note","input":{"title":"Applied AI note","body":"Approved body from preview.","tags":"approved,preview","linkedResources":"https://example.com/spec","noteDate":"2026-06-01"}}
 								""")
 						.with(user("apply-note-user", "apply-note@example.com")))
 				.andExpect(status().isOk())
@@ -404,6 +405,7 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.entity.title").value("Applied AI note"))
 				.andExpect(jsonPath("$.entity.body").value("Approved body from preview."))
 				.andExpect(jsonPath("$.entity.tags").value("approved,preview"))
+				.andExpect(jsonPath("$.entity.linkedResources").value("https://example.com/spec"))
 				.andExpect(jsonPath("$.entity.noteDate").value("2026-06-01"));
 
 		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes").param("q", "Approved body")

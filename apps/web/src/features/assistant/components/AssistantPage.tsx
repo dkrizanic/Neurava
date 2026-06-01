@@ -318,6 +318,10 @@ function AssistantMessageItem({
             <dt>Tags</dt>
             <dd>{message.preview.preview.tags || 'No tags suggested'}</dd>
           </div>
+          <div>
+            <dt>Links</dt>
+            <dd>{message.preview.preview.linkedResources || 'No links suggested'}</dd>
+          </div>
         </dl>
         <div className="assistant-preview__actions">
           <Button

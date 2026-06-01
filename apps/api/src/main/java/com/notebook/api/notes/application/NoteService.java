@@ -35,9 +35,15 @@ public class NoteService {
 	@Transactional
 	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate,
 			String tags) {
+		return create(ownerAccountId, workspaceContextId, title, body, noteDate, tags, "");
+	}
+
+	@Transactional
+	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate,
+			String tags, String linkedResources) {
 		Note note = Note.create(ownerAccountId, workspaceContextId, title, body, noteDate, Instant.now());
-		if (tags != null && !tags.isBlank()) {
-			note.organize(tags, false, false, EditorMode.RICH_TEXT, "", Instant.now());
+		if ((tags != null && !tags.isBlank()) || (linkedResources != null && !linkedResources.isBlank())) {
+			note.organize(tags, false, false, EditorMode.RICH_TEXT, linkedResources, Instant.now());
 		}
 		Note saved = this.notes.save(note);
 		publishContentChanged(saved);

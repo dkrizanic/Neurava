@@ -13,6 +13,8 @@ public record CreateNoteApplyInput(
 		String body,
 		@Size(max = 512, message = "Tags must be 512 characters or fewer.")
 		String tags,
+		@Size(max = 1024, message = "Linked resources must be 1024 characters or fewer.")
+		String linkedResources,
 		LocalDate noteDate
 ) {
 	public CreateNoteApplyInput {

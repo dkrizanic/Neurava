@@ -43,10 +43,11 @@ public class AssistantActionApplicationService {
 				textField(inputNode, "title"),
 				nullableTextField(inputNode, "body"),
 				nullableTextField(inputNode, "tags"),
+				nullableTextField(inputNode, "linkedResources"),
 				dateField(inputNode, "noteDate")));
 
 		NoteSummary entity = this.notes.create(ownerAccountId, workspaceContextId, input.title(), input.body(),
-				input.noteDate(), input.tags());
+				input.noteDate(), input.tags(), input.linkedResources());
 		String summary = "Created note \"%s\".".formatted(entity.title());
 		this.history.recordCreatedNote(ownerAccountId, workspaceContextId, entity, summary);
 

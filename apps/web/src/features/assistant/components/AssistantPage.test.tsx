@@ -164,6 +164,7 @@ describe('AssistantPage', () => {
       entityType: 'note',
       preview: {
         body: 'Lets make new note',
+        linkedResources: 'https://example.com/input',
         tags: 'make,note',
         title: 'Lets make new note',
       },
@@ -179,7 +180,7 @@ describe('AssistantPage', () => {
         editorMode: 'RICH_TEXT',
         favorite: false,
         id: 'note-1',
-        linkedResources: '',
+        linkedResources: 'https://example.com/input',
         noteDate: '2026-06-01',
         ownerAccountId: 'account-1',
         pinned: false,
@@ -219,6 +220,7 @@ describe('AssistantPage', () => {
 
     await waitFor(() => expect(mockedApplyCreateNotePreview).toHaveBeenCalledWith({
       body: 'Lets make new note',
+      linkedResources: 'https://example.com/input',
       tags: 'make,note',
       title: 'Lets make new note',
     }));

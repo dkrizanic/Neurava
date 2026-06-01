@@ -47,6 +47,7 @@ export type AssistantPreviewActionName = 'create_note' | 'fix_note_grammar';
 
 export type NoteChangePreview = {
   body: string;
+  linkedResources: string;
   tags: string;
   title: string;
 };

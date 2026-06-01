@@ -42,7 +42,7 @@ export async function previewCreateNote(text: string, signal?: AbortSignal): Pro
 }
 
 export async function applyCreateNotePreview(
-  preview: { body: string; noteDate?: string; tags: string; title: string },
+  preview: { body: string; linkedResources?: string; noteDate?: string; tags: string; title: string },
   signal?: AbortSignal,
 ): Promise<AssistantActionApplicationResponse> {
   const response = await fetch(`${apiBaseUrl}/api/v1/ai/action-applications`, {

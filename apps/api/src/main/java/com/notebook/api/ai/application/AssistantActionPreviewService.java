@@ -42,7 +42,8 @@ public class AssistantActionPreviewService {
 		NoteChangePreview preview = new NoteChangePreview(
 				titleFrom(input.text()),
 				bodyFrom(input.text()),
-				tagsFrom(input.text()));
+				tagsFrom(input.text()),
+				linksFrom(input.text()));
 		return new AssistantActionPreviewResponse(
 				CREATE_NOTE,
 				"note",
@@ -107,6 +108,20 @@ public class AssistantActionPreviewService {
 			}
 		}
 		return String.join(",", tags);
+	}
+
+	private static String linksFrom(String text) {
+		LinkedHashSet<String> links = new LinkedHashSet<>();
+		for (String token : text.split("\\s+")) {
+			String cleaned = token.replaceAll("[),.;!?]+$", "");
+			if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) {
+				links.add(cleaned);
+			}
+			if (links.size() == 5) {
+				break;
+			}
+		}
+		return String.join("\n", links);
 	}
 
 	private static String textField(Map<String, Object> inputNode, String fieldName) {

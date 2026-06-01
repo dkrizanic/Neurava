@@ -64,6 +64,7 @@ describe('assistantApi', () => {
       entityType: 'note',
       preview: {
         body: 'Clean body',
+        linkedResources: 'https://example.com/spec',
         tags: 'clean,body',
         title: 'Clean title',
       },
@@ -86,6 +87,7 @@ describe('assistantApi', () => {
       entity: {
         body: 'Clean body',
         id: 'note-1',
+        linkedResources: 'https://example.com/spec',
         noteDate: '2026-06-01',
         tags: 'clean,body',
         title: 'Clean title',
@@ -96,6 +98,7 @@ describe('assistantApi', () => {
 
     await expect(applyCreateNotePreview({
       body: 'Clean body',
+      linkedResources: 'https://example.com/spec',
       noteDate: '2026-06-01',
       tags: 'clean,body',
       title: 'Clean title',
@@ -107,6 +110,7 @@ describe('assistantApi', () => {
         action: 'create_note',
         input: {
           body: 'Clean body',
+          linkedResources: 'https://example.com/spec',
           noteDate: '2026-06-01',
           tags: 'clean,body',
           title: 'Clean title',
