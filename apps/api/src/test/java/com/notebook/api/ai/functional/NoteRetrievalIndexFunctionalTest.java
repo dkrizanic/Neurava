@@ -428,6 +428,83 @@ class NoteRetrievalIndexFunctionalTest {
 	}
 
 	@Test
+	void assistantActionHistoryRevertsAiCreatedNote() throws Exception {
+		String marker = "revert-" + UUID.randomUUID();
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"create_note","input":{"title":"Revert me","body":"%s","tags":"revert","noteDate":"2026-06-01"}}
+								""".formatted(marker))
+						.with(user("revert-note-user", "revert-note@example.com")))
+				.andExpect(status().isOk());
+
+		UUID historyId = this.jdbc.queryForObject("""
+				SELECT id
+				FROM ai_action_history
+				WHERE current_state::text LIKE ?
+				ORDER BY created_at DESC
+				LIMIT 1
+				""", UUID.class, "%" + marker + "%");
+		UUID noteId = this.jdbc.queryForObject("""
+				SELECT entity_id
+				FROM ai_action_history
+				WHERE id = ?
+				""", UUID.class, historyId);
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-history/{historyId}/revert", historyId)
+						.with(user("revert-note-user", "revert-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.revertedAt").exists())
+				.andExpect(jsonPath("$.revertSummary").value("Removed AI-created note."));
+
+		Integer noteCount = this.jdbc.queryForObject("""
+				SELECT count(*)
+				FROM note
+				WHERE id = ?
+				""", Integer.class, noteId);
+		Integer indexCount = this.jdbc.queryForObject("""
+				SELECT count(*)
+				FROM note_retrieval_index
+				WHERE note_id = ?
+				""", Integer.class, noteId);
+		assertThat(noteCount).isZero();
+		assertThat(indexCount).isZero();
+	}
+
+	@Test
+	void assistantActionHistoryExplainsWhenRevertedNoteNoLongerExists() throws Exception {
+		String marker = "missing-revert-" + UUID.randomUUID();
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"create_note","input":{"title":"Missing revert note","body":"%s","tags":"missing","noteDate":"2026-06-01"}}
+								""".formatted(marker))
+						.with(user("missing-revert-user", "missing-revert@example.com")))
+				.andExpect(status().isOk());
+
+		UUID historyId = this.jdbc.queryForObject("""
+				SELECT id
+				FROM ai_action_history
+				WHERE current_state::text LIKE ?
+				ORDER BY created_at DESC
+				LIMIT 1
+				""", UUID.class, "%" + marker + "%");
+		UUID entityId = this.jdbc.queryForObject("""
+				SELECT entity_id
+				FROM ai_action_history
+				WHERE id = ?
+				""", UUID.class, historyId);
+		this.jdbc.update("DELETE FROM note WHERE id = ?", entityId);
+
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-history/{historyId}/revert", historyId)
+						.with(user("missing-revert-user", "missing-revert@example.com")))
+				.andExpect(status().isConflict())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("AI action cannot be reverted"))
+				.andExpect(jsonPath("$.detail").value("The note created by this AI action no longer exists."));
+	}
+
+	@Test
 	void assistantActionApplicationRejectsUnsupportedActionsWithProblemDetails() throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
 						.contentType(MediaType.APPLICATION_JSON)

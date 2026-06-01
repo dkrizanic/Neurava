@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.notebook.api.ai.domain.RetrievalIndexStatus;
 import com.notebook.api.notes.application.NoteContentChangedEvent;
+import com.notebook.api.notes.application.NoteDeletedEvent;
 
 @Service
 public class NoteRetrievalIndexingService {
@@ -32,6 +33,10 @@ public class NoteRetrievalIndexingService {
 				event.noteUpdatedAt(),
 				RetrievalIndexStatus.INDEXED,
 				null));
+	}
+
+	public void delete(NoteDeletedEvent event) {
+		this.index.delete(event.noteId(), event.workspaceContextId());
 	}
 
 	private static String searchableText(NoteContentChangedEvent event) {

@@ -7,6 +7,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.notebook.api.notes.application.NoteContentChangedEvent;
+import com.notebook.api.notes.application.NoteDeletedEvent;
 
 @Component
 public class NoteRetrievalIndexListener {
@@ -25,6 +26,19 @@ public class NoteRetrievalIndexListener {
 			this.indexing.index(event);
 		} catch (RuntimeException exception) {
 			log.warn("Note retrieval indexing failed for noteId={} workspaceContextId={} cause={}: {}",
+					event.noteId(),
+					event.workspaceContextId(),
+					exception.getClass().getSimpleName(),
+					exception.getMessage());
+		}
+	}
+
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	public void on(NoteDeletedEvent event) {
+		try {
+			this.indexing.delete(event);
+		} catch (RuntimeException exception) {
+			log.warn("Note retrieval index deletion failed for noteId={} workspaceContextId={} cause={}: {}",
 					event.noteId(),
 					event.workspaceContextId(),
 					exception.getClass().getSimpleName(),

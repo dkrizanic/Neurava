@@ -45,6 +45,12 @@ public class AiActionHistoryRecord {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	@Column(name = "reverted_at")
+	private Instant revertedAt;
+
+	@Column(name = "revert_summary", length = 512)
+	private String revertSummary;
+
 	protected AiActionHistoryRecord() {
 	}
 
@@ -112,5 +118,22 @@ public class AiActionHistoryRecord {
 
 	public Instant getCreatedAt() {
 		return this.createdAt;
+	}
+
+	public Instant getRevertedAt() {
+		return this.revertedAt;
+	}
+
+	public String getRevertSummary() {
+		return this.revertSummary;
+	}
+
+	public boolean isReverted() {
+		return this.revertedAt != null;
+	}
+
+	public void markReverted(String revertSummary, Instant now) {
+		this.revertedAt = now;
+		this.revertSummary = revertSummary;
 	}
 }

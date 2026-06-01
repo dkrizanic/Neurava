@@ -8,18 +8,23 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import com.notebook.api.ai.domain.AiActionHistoryRecord;
 import com.notebook.api.ai.infrastructure.persistence.AiActionHistoryRepository;
+import com.notebook.api.notes.application.NoteService;
 import com.notebook.api.notes.application.NoteSummary;
 
 @Service
 public class AiActionHistoryService {
 
 	private final AiActionHistoryRepository history;
+	private final NoteService notes;
 
-	public AiActionHistoryService(AiActionHistoryRepository history) {
+	public AiActionHistoryService(AiActionHistoryRepository history, NoteService notes) {
 		this.history = history;
+		this.notes = notes;
 	}
 
 	@Transactional
@@ -44,6 +49,32 @@ public class AiActionHistoryService {
 		return this.history.findByWorkspaceContextIdOrderByCreatedAtDesc(workspaceContextId).stream()
 				.map(AiActionHistorySummary::from)
 				.toList();
+	}
+
+	@Transactional
+	public AiActionHistorySummary revert(UUID historyId, UUID workspaceContextId) {
+		AiActionHistoryRecord record = this.history.findByIdAndWorkspaceContextId(historyId, workspaceContextId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI action history record not found."));
+
+		if (record.isReverted()) {
+			return AiActionHistorySummary.from(record);
+		}
+		if (!CREATE_NOTE.equals(record.getAction()) || !"note".equals(record.getEntityType())
+				|| !"create".equals(record.getChangeType())) {
+			throw new AiActionRevertException("This AI action cannot be reverted yet.");
+		}
+
+		try {
+			this.notes.delete(record.getEntityId(), workspaceContextId);
+		} catch (ResponseStatusException exception) {
+			if (exception.getStatusCode() == HttpStatus.NOT_FOUND) {
+				throw new AiActionRevertException("The note created by this AI action no longer exists.");
+			}
+			throw exception;
+		}
+
+		record.markReverted("Removed AI-created note.", Instant.now());
+		return AiActionHistorySummary.from(record);
 	}
 
 	private static String noteState(NoteSummary note) {

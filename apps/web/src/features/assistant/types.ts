@@ -77,6 +77,8 @@ export type AiActionHistorySummary = {
   id: EntityId;
   ownerAccountId: EntityId;
   previousState: string | null;
+  revertedAt: string | null;
+  revertSummary: string | null;
   summary: string;
   workspaceContextId: EntityId;
 };

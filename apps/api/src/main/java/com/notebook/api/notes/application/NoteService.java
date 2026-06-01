@@ -87,6 +87,13 @@ public class NoteService {
 		return NoteSummary.from(note);
 	}
 
+	@Transactional
+	public void delete(UUID noteId, UUID workspaceContextId) {
+		Note note = findWorkspaceNote(noteId, workspaceContextId);
+		this.notes.delete(note);
+		this.events.publishEvent(new NoteDeletedEvent(noteId, workspaceContextId));
+	}
+
 	private Note findWorkspaceNote(UUID noteId, UUID workspaceContextId) {
 		return this.notes.findByIdAndWorkspaceContextId(noteId, workspaceContextId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found."));

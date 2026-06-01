@@ -700,6 +700,14 @@ p {
   white-space: nowrap;
 }
 
+.assistant-history__meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .assistant-answer,
 .assistant-sources {
   display: grid;

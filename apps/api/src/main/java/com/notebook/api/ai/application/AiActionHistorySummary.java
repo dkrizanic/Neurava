@@ -16,7 +16,9 @@ public record AiActionHistorySummary(
 		String summary,
 		String previousState,
 		String currentState,
-		Instant createdAt
+		Instant createdAt,
+		Instant revertedAt,
+		String revertSummary
 ) {
 
 	public static AiActionHistorySummary from(AiActionHistoryRecord record) {
@@ -31,6 +33,8 @@ public record AiActionHistorySummary(
 				record.getSummary(),
 				record.getPreviousState(),
 				record.getCurrentState(),
-				record.getCreatedAt());
+				record.getCreatedAt(),
+				record.getRevertedAt(),
+				record.getRevertSummary());
 	}
 }

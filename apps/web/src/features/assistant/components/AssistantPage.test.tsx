@@ -2,7 +2,13 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { answerQuestion, applyCreateNotePreview, fetchAiActionHistory, previewCreateNote } from '../api/assistantApi';
+import {
+  answerQuestion,
+  applyCreateNotePreview,
+  fetchAiActionHistory,
+  previewCreateNote,
+  revertAiAction,
+} from '../api/assistantApi';
 import { AssistantPage } from './AssistantPage';
 
 vi.mock('../api/assistantApi', () => ({
@@ -10,12 +16,14 @@ vi.mock('../api/assistantApi', () => ({
   applyCreateNotePreview: vi.fn(),
   fetchAiActionHistory: vi.fn(),
   previewCreateNote: vi.fn(),
+  revertAiAction: vi.fn(),
 }));
 
 const mockedAnswerQuestion = vi.mocked(answerQuestion);
 const mockedApplyCreateNotePreview = vi.mocked(applyCreateNotePreview);
 const mockedFetchAiActionHistory = vi.mocked(fetchAiActionHistory);
 const mockedPreviewCreateNote = vi.mocked(previewCreateNote);
+const mockedRevertAiAction = vi.mocked(revertAiAction);
 
 const authSession = {
   account: {
@@ -39,6 +47,7 @@ describe('AssistantPage', () => {
     mockedFetchAiActionHistory.mockReset();
     mockedFetchAiActionHistory.mockResolvedValue([]);
     mockedPreviewCreateNote.mockReset();
+    mockedRevertAiAction.mockReset();
   });
 
   it('prompts anonymous users to sign in', () => {
@@ -194,6 +203,8 @@ describe('AssistantPage', () => {
         id: 'history-1',
         ownerAccountId: 'account-1',
         previousState: null,
+        revertedAt: null,
+        revertSummary: null,
         summary: 'Created note "Lets make new note".',
         workspaceContextId: 'workspace-1',
       }]);
@@ -214,5 +225,47 @@ describe('AssistantPage', () => {
     expect(await screen.findByText(/it is now saved in notes/i)).toBeInTheDocument();
     expect(await screen.findByLabelText(/recent ai changes/i)).toHaveTextContent(/created note "lets make new note"/i);
     expect(mockedAnswerQuestion).not.toHaveBeenCalled();
+  });
+
+  it('reverts an AI-created note from action history', async () => {
+    const user = userEvent.setup();
+    mockedFetchAiActionHistory.mockResolvedValue([{
+      action: 'create_note',
+      changeType: 'create',
+      createdAt: '2026-06-01T15:00:00Z',
+      currentState: '{"title":"Temporary AI note"}',
+      entityId: 'note-1',
+      entityType: 'note',
+      id: 'history-1',
+      ownerAccountId: 'account-1',
+      previousState: null,
+      revertedAt: null,
+      revertSummary: null,
+      summary: 'Created note "Temporary AI note".',
+      workspaceContextId: 'workspace-1',
+    }]);
+    mockedRevertAiAction.mockResolvedValue({
+      action: 'create_note',
+      changeType: 'create',
+      createdAt: '2026-06-01T15:00:00Z',
+      currentState: '{"title":"Temporary AI note"}',
+      entityId: 'note-1',
+      entityType: 'note',
+      id: 'history-1',
+      ownerAccountId: 'account-1',
+      previousState: null,
+      revertedAt: '2026-06-01T15:05:00Z',
+      revertSummary: 'Removed AI-created note.',
+      summary: 'Created note "Temporary AI note".',
+      workspaceContextId: 'workspace-1',
+    });
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    expect(await screen.findByText(/temporary ai note/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /revert/i }));
+
+    await waitFor(() => expect(mockedRevertAiAction).toHaveBeenCalledWith('history-1'));
+    expect(await screen.findByText(/removed ai-created note/i)).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import {
   applyCreateNotePreview,
   fetchAiActionHistory,
   previewCreateNote,
+  revertAiAction,
   summarizeHistory,
 } from './assistantApi';
 
@@ -126,6 +127,8 @@ describe('assistantApi', () => {
       id: 'history-1',
       ownerAccountId: 'account-1',
       previousState: null,
+      revertedAt: null,
+      revertSummary: null,
       summary: 'Created note "Clean title".',
       workspaceContextId: 'workspace-1',
     }]));
@@ -135,6 +138,31 @@ describe('assistantApi', () => {
     ]);
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8080/api/v1/ai/action-history', expect.objectContaining({
       credentials: 'include',
+    }));
+  });
+
+  it('reverts AI action history records through the history endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
+      action: 'create_note',
+      changeType: 'create',
+      createdAt: '2026-06-01T15:00:00Z',
+      currentState: '{"title":"Clean title"}',
+      entityId: 'note-1',
+      entityType: 'note',
+      id: 'history-1',
+      ownerAccountId: 'account-1',
+      previousState: null,
+      revertedAt: '2026-06-01T15:05:00Z',
+      revertSummary: 'Removed AI-created note.',
+      summary: 'Created note "Clean title".',
+      workspaceContextId: 'workspace-1',
+    }));
+
+    await expect(revertAiAction('history-1')).resolves.toMatchObject({
+      revertSummary: 'Removed AI-created note.',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8080/api/v1/ai/action-history/history-1/revert', expect.objectContaining({
+      method: 'POST',
     }));
   });
 });

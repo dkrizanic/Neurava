@@ -59,6 +59,15 @@ class JdbcNoteRetrievalIndexRepository implements NoteRetrievalIndexRepository {
 	}
 
 	@Override
+	public void delete(UUID noteId, UUID workspaceContextId) {
+		this.jdbc.update("""
+				DELETE FROM note_retrieval_index
+				WHERE note_id = ?
+				  AND workspace_context_id = ?
+				""", noteId, workspaceContextId);
+	}
+
+	@Override
 	public List<MemorySearchMatch> search(UUID workspaceContextId, EmbeddingVector queryEmbedding, String query, int limit) {
 		List<String> tokens = tokens(query);
 		List<IndexedNoteMatch> candidates = this.jdbc.query("""

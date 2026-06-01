@@ -4,7 +4,13 @@ import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
-import { answerQuestion, applyCreateNotePreview, fetchAiActionHistory, previewCreateNote } from '../api/assistantApi';
+import {
+  answerQuestion,
+  applyCreateNotePreview,
+  fetchAiActionHistory,
+  previewCreateNote,
+  revertAiAction,
+} from '../api/assistantApi';
 import type {
   AiActionHistorySummary,
   AssistantMessage,
@@ -18,6 +24,7 @@ export function AssistantPage() {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [history, setHistory] = useState<AiActionHistorySummary[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [revertingHistoryId, setRevertingHistoryId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [applyingMessageId, setApplyingMessageId] = useState<string | null>(null);
@@ -139,6 +146,23 @@ export function AssistantPage() {
     setMessages((current) => current.filter((message) => message.id !== messageIdToRemove));
   }
 
+  async function revertHistory(record: AiActionHistorySummary) {
+    if (revertingHistoryId) {
+      return;
+    }
+    setRevertingHistoryId(record.id);
+    try {
+      const reverted = await revertAiAction(record.id);
+      setHistory((current) => current.map((item) => (item.id === reverted.id ? reverted : item)));
+      appendMessages([assistantTextMessage('status', reverted.revertSummary ?? 'AI action reverted.')]);
+      await loadHistory();
+    } catch {
+      appendMessages([assistantTextMessage('error', 'AI action could not be reverted. The related data may no longer exist.')]);
+    } finally {
+      setRevertingHistoryId(null);
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="route-stack">
@@ -223,9 +247,22 @@ export function AssistantPage() {
           <article className="assistant-history__item" key={record.id}>
             <div>
               <h4>{record.summary}</h4>
-              <p>{record.entityType} {record.changeType}</p>
+              <p>{record.revertedAt ? `Reverted: ${record.revertSummary}` : `${record.entityType} ${record.changeType}`}</p>
             </div>
-            <time dateTime={record.createdAt}>{formatIsoDateTime(record.createdAt)}</time>
+            <div className="assistant-history__meta">
+              <time dateTime={record.createdAt}>{formatIsoDateTime(record.createdAt)}</time>
+              {!record.revertedAt && record.action === 'create_note' && record.entityType === 'note' ? (
+                <Button
+                  disabled={revertingHistoryId === record.id}
+                  icon={<RotateCcw aria-hidden="true" size={16} />}
+                  onClick={() => void revertHistory(record)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {revertingHistoryId === record.id ? 'Reverting' : 'Revert'}
+                </Button>
+              ) : null}
+            </div>
           </article>
         ))}
       </section>

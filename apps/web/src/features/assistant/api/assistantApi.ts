@@ -79,6 +79,23 @@ export async function fetchAiActionHistory(signal?: AbortSignal): Promise<AiActi
   return response.json() as Promise<AiActionHistorySummary[]>;
 }
 
+export async function revertAiAction(historyId: string, signal?: AbortSignal): Promise<AiActionHistorySummary> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/ai/action-history/${historyId}/revert`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+    method: 'POST',
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to revert AI action');
+  }
+
+  return response.json() as Promise<AiActionHistorySummary>;
+}
+
 async function executeAssistantAction<TAction extends AssistantActionName>(
   action: TAction,
   input: Record<string, string>,
