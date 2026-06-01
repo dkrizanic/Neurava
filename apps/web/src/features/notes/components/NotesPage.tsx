@@ -70,8 +70,18 @@ export function NotesPage() {
 
     fetchNotes({ ...filters, date: selectedDate }, controller.signal)
       .then(setNotes)
-      .catch(() => setError('Notes could not be loaded.'))
-      .finally(() => setIsLoading(false));
+      .catch((fetchError: unknown) => {
+        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') {
+          return;
+        }
+
+        setError('Notes could not be loaded.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      });
 
     return () => controller.abort();
   }, [
