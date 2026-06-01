@@ -5,6 +5,16 @@ import { renderWithAuth } from '../../../test/renderWithAuth';
 import { answerQuestion } from '../api/assistantApi';
 import { AssistantPage } from './AssistantPage';
 
+const navigateMock = vi.hoisted(() => vi.fn());
+
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>();
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
+
 vi.mock('../api/assistantApi', () => ({
   answerQuestion: vi.fn(),
 }));
@@ -28,6 +38,7 @@ const authSession = {
 
 describe('AssistantPage', () => {
   beforeEach(() => {
+    navigateMock.mockReset();
     mockedAnswerQuestion.mockReset();
   });
 
@@ -135,5 +146,18 @@ describe('AssistantPage', () => {
 
     await waitFor(() => expect(mockedAnswerQuestion).toHaveBeenCalledWith('Summarize API planning'));
     expect(await screen.findByLabelText(/assistant answer/i)).toHaveTextContent(/short summary/i);
+  });
+
+  it('opens the new-note page for create-note requests', async () => {
+    const user = userEvent.setup();
+
+    renderWithAuth(<AssistantPage />, authSession);
+
+    await user.type(screen.getByLabelText(/message/i), 'Lets make new note');
+    await user.click(screen.getByRole('button', { name: /send/i }));
+
+    expect(screen.getByText(/opening a new note editor/i)).toBeInTheDocument();
+    expect(navigateMock).toHaveBeenCalledWith('/notes/new');
+    expect(mockedAnswerQuestion).not.toHaveBeenCalled();
   });
 });

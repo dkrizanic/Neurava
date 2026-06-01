@@ -73,5 +73,5 @@ export type AssistantMessage =
       id: string;
       role: 'assistant';
       text: string;
-      type: 'clarification' | 'error';
+      type: 'clarification' | 'error' | 'status';
     };

@@ -1,5 +1,6 @@
 import { Bot, RotateCcw, Send } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
@@ -12,6 +13,7 @@ import type {
 
 export function AssistantPage() {
   const { activeWorkspace, authenticated } = useAuth();
+  const navigate = useNavigate();
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,16 @@ export function AssistantPage() {
     }
 
     setError(null);
+
+    if (isCreateNoteRequest(trimmedPrompt)) {
+      appendMessages([
+        userMessage(trimmedPrompt),
+        assistantTextMessage('status', 'Opening a new note editor.'),
+      ]);
+      setQuestion('');
+      navigate('/notes/new');
+      return;
+    }
 
     if (isAmbiguous(trimmedPrompt)) {
       appendMessages([
@@ -155,7 +167,7 @@ function AssistantMessageItem({ message }: { message: AssistantMessage }) {
   if ('type' in message) {
     return (
       <article className={`assistant-message assistant-message--${message.type}`}>
-        <p className="eyebrow">{message.type === 'error' ? 'Error' : 'Clarifying question'}</p>
+        <p className="eyebrow">{assistantTextLabel(message.type)}</p>
         <p>{message.text}</p>
       </article>
     );
@@ -208,12 +220,28 @@ function isAmbiguous(prompt: string) {
   return prompt.split(/\s+/).filter(Boolean).length < 2;
 }
 
+function isCreateNoteRequest(prompt: string) {
+  const normalized = prompt.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return /\b(?:create|make|add|new|start|write)\b.*\bnotes?\b/.test(normalized)
+    || /\bnotes?\b.*\b(?:create|make|add|new|start|write)\b/.test(normalized);
+}
+
 function userMessage(text: string): AssistantMessage {
   return { id: messageId(), role: 'user', text };
 }
 
-function assistantTextMessage(type: 'clarification' | 'error', text: string): AssistantMessage {
+function assistantTextMessage(type: 'clarification' | 'error' | 'status', text: string): AssistantMessage {
   return { id: messageId(), role: 'assistant', text, type };
+}
+
+function assistantTextLabel(type: 'clarification' | 'error' | 'status') {
+  if (type === 'error') {
+    return 'Error';
+  }
+  if (type === 'status') {
+    return 'Assistant';
+  }
+  return 'Clarifying question';
 }
 
 function messageId() {

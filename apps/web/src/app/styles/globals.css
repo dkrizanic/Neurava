@@ -599,7 +599,8 @@ p {
 }
 
 .assistant-message--assistant,
-.assistant-message--clarification {
+.assistant-message--clarification,
+.assistant-message--status {
   background: #ffffff;
   justify-self: start;
   width: min(100%, 860px);
@@ -611,6 +612,10 @@ p {
 
 .assistant-message--clarification {
   border-left: 4px solid #6b7280;
+}
+
+.assistant-message--status {
+  border-left: 4px solid #0f766e;
 }
 
 .assistant-message--error {
