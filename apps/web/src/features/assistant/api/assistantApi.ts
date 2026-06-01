@@ -1,6 +1,7 @@
 import { apiBaseUrl } from '../../../shared/api/httpClient';
 import type {
   AssistantActionName,
+  AssistantActionApplicationResponse,
   AssistantActionPreviewResponse,
   AssistantActionResponse,
   AssistantActionResultByName,
@@ -37,6 +38,28 @@ export async function previewCreateNote(text: string, signal?: AbortSignal): Pro
   }
 
   return response.json() as Promise<AssistantActionPreviewResponse>;
+}
+
+export async function applyCreateNotePreview(
+  preview: { body: string; noteDate?: string; tags: string; title: string },
+  signal?: AbortSignal,
+): Promise<AssistantActionApplicationResponse> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/ai/action-applications`, {
+    body: JSON.stringify({ action: 'create_note', input: preview }),
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to apply note change');
+  }
+
+  return response.json() as Promise<AssistantActionApplicationResponse>;
 }
 
 async function executeAssistantAction<TAction extends AssistantActionName>(

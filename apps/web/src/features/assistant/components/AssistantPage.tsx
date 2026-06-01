@@ -1,23 +1,23 @@
-import { Bot, RotateCcw, Send } from 'lucide-react';
+import { Bot, Check, RotateCcw, Send, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
-import { answerQuestion } from '../api/assistantApi';
+import { answerQuestion, applyCreateNotePreview, previewCreateNote } from '../api/assistantApi';
 import type {
   AssistantMessage,
+  AssistantActionPreviewResponse,
   SourceReference,
 } from '../types';
 
 export function AssistantPage() {
   const { activeWorkspace, authenticated } = useAuth();
-  const navigate = useNavigate();
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [applyingMessageId, setApplyingMessageId] = useState<string | null>(null);
   const [lastRequest, setLastRequest] = useState<string | null>(null);
   const latestMessage = messages.at(-1);
   const canRetry = Boolean(
@@ -42,12 +42,18 @@ export function AssistantPage() {
     setError(null);
 
     if (isCreateNoteRequest(trimmedPrompt)) {
-      appendMessages([
-        userMessage(trimmedPrompt),
-        assistantTextMessage('status', 'Opening a new note editor.'),
-      ]);
+      setLastRequest(trimmedPrompt);
+      appendMessages([userMessage(trimmedPrompt)]);
       setQuestion('');
-      navigate('/notes/new');
+      setIsLoading(true);
+      try {
+        const preview = await previewCreateNote(trimmedPrompt);
+        appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
+      } catch {
+        appendMessages([assistantTextMessage('error', 'Note preview could not be loaded.')]);
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -86,6 +92,26 @@ export function AssistantPage() {
     setMessages((current) => [...current, ...nextMessages]);
   }
 
+  async function applyPreview(messageIdToApply: string, preview: AssistantActionPreviewResponse) {
+    if (applyingMessageId) {
+      return;
+    }
+    setApplyingMessageId(messageIdToApply);
+    try {
+      const applied = await applyCreateNotePreview(preview.preview);
+      setMessages((current) => current.filter((message) => message.id !== messageIdToApply));
+      appendMessages([assistantTextMessage('status', `${applied.summary} It is now saved in Notes.`)]);
+    } catch {
+      appendMessages([assistantTextMessage('error', 'Note change could not be applied.')]);
+    } finally {
+      setApplyingMessageId(null);
+    }
+  }
+
+  function cancelPreview(messageIdToRemove: string) {
+    setMessages((current) => current.filter((message) => message.id !== messageIdToRemove));
+  }
+
   if (!authenticated) {
     return (
       <div className="route-stack">
@@ -114,7 +140,13 @@ export function AssistantPage() {
           </div>
         ) : null}
         {messages.map((message) => (
-          <AssistantMessageItem key={message.id} message={message} />
+          <AssistantMessageItem
+            applyingMessageId={applyingMessageId}
+            key={message.id}
+            message={message}
+            onApplyPreview={(preview) => void applyPreview(message.id, preview)}
+            onCancelPreview={() => cancelPreview(message.id)}
+          />
         ))}
         {isLoading ? <LoadingState label="Thinking with your workspace context" /> : null}
       </section>
@@ -154,7 +186,17 @@ export function AssistantPage() {
   );
 }
 
-function AssistantMessageItem({ message }: { message: AssistantMessage }) {
+function AssistantMessageItem({
+  applyingMessageId,
+  message,
+  onApplyPreview,
+  onCancelPreview,
+}: {
+  applyingMessageId: string | null;
+  message: AssistantMessage;
+  onApplyPreview: (preview: AssistantActionPreviewResponse) => void;
+  onCancelPreview: () => void;
+}) {
   if (message.role === 'user') {
     return (
       <article className="assistant-message assistant-message--user">
@@ -169,6 +211,50 @@ function AssistantMessageItem({ message }: { message: AssistantMessage }) {
       <article className={`assistant-message assistant-message--${message.type}`}>
         <p className="eyebrow">{assistantTextLabel(message.type)}</p>
         <p>{message.text}</p>
+      </article>
+    );
+  }
+
+  if ('preview' in message) {
+    const isApplying = applyingMessageId === message.id;
+    return (
+      <article className="assistant-message assistant-message--assistant" aria-label="AI change preview">
+        <p className="eyebrow">Preview</p>
+        <h3>{message.preview.summary}</h3>
+        <dl className="assistant-preview">
+          <div>
+            <dt>Title</dt>
+            <dd>{message.preview.preview.title}</dd>
+          </div>
+          <div>
+            <dt>Body</dt>
+            <dd>{message.preview.preview.body}</dd>
+          </div>
+          <div>
+            <dt>Tags</dt>
+            <dd>{message.preview.preview.tags || 'No tags suggested'}</dd>
+          </div>
+        </dl>
+        <div className="assistant-preview__actions">
+          <Button
+            disabled={isApplying}
+            icon={<Check aria-hidden="true" size={16} />}
+            onClick={() => onApplyPreview(message.preview)}
+            type="button"
+            variant="primary"
+          >
+            {isApplying ? 'Applying' : 'Apply'}
+          </Button>
+          <Button
+            disabled={isApplying}
+            icon={<X aria-hidden="true" size={16} />}
+            onClick={onCancelPreview}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+        </div>
       </article>
     );
   }

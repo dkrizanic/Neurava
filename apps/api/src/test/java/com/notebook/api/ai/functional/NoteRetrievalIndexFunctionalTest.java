@@ -387,6 +387,46 @@ class NoteRetrievalIndexFunctionalTest {
 				.andExpect(jsonPath("$.action").value("delete_notes"));
 	}
 
+	@Test
+	void assistantActionApplicationCreatesNoteFromApprovedPreview() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"create_note","input":{"title":"Applied AI note","body":"Approved body from preview.","tags":"approved,preview","noteDate":"2026-06-01"}}
+								""")
+						.with(user("apply-note-user", "apply-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.action").value("create_note"))
+				.andExpect(jsonPath("$.entityType").value("note"))
+				.andExpect(jsonPath("$.changeType").value("create"))
+				.andExpect(jsonPath("$.summary").value("Created note \"Applied AI note\"."))
+				.andExpect(jsonPath("$.entity.title").value("Applied AI note"))
+				.andExpect(jsonPath("$.entity.body").value("Approved body from preview."))
+				.andExpect(jsonPath("$.entity.tags").value("approved,preview"))
+				.andExpect(jsonPath("$.entity.noteDate").value("2026-06-01"));
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/notes").param("q", "Approved body")
+						.with(user("apply-note-user", "apply-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].title").value("Applied AI note"));
+	}
+
+	@Test
+	void assistantActionApplicationRejectsUnsupportedActionsWithProblemDetails() throws Exception {
+		this.mockMvc.perform(post(ApiPaths.API_V1 + "/ai/action-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"action":"delete_notes","input":{"title":"all"}}
+								""")
+						.with(user("unsupported-apply-user", "unsupported-apply@example.com")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Unsupported assistant action application"))
+				.andExpect(jsonPath("$.detail").value("Assistant action application is not supported."))
+				.andExpect(jsonPath("$.action").value("delete_notes"));
+	}
+
 	private void createNote(String subject, String email, String title, String body) throws Exception {
 		this.mockMvc.perform(post(ApiPaths.API_V1 + "/notes")
 						.contentType(MediaType.APPLICATION_JSON)

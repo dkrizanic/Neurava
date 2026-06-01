@@ -29,7 +29,16 @@ public class NoteService {
 
 	@Transactional
 	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate) {
+		return create(ownerAccountId, workspaceContextId, title, body, noteDate, "");
+	}
+
+	@Transactional
+	public NoteSummary create(UUID ownerAccountId, UUID workspaceContextId, String title, String body, LocalDate noteDate,
+			String tags) {
 		Note note = Note.create(ownerAccountId, workspaceContextId, title, body, noteDate, Instant.now());
+		if (tags != null && !tags.isBlank()) {
+			note.organize(tags, false, false, EditorMode.RICH_TEXT, "", Instant.now());
+		}
 		Note saved = this.notes.save(note);
 		publishContentChanged(saved);
 		return NoteSummary.from(saved);

@@ -2,24 +2,18 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { answerQuestion } from '../api/assistantApi';
+import { answerQuestion, applyCreateNotePreview, previewCreateNote } from '../api/assistantApi';
 import { AssistantPage } from './AssistantPage';
-
-const navigateMock = vi.hoisted(() => vi.fn());
-
-vi.mock('react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  };
-});
 
 vi.mock('../api/assistantApi', () => ({
   answerQuestion: vi.fn(),
+  applyCreateNotePreview: vi.fn(),
+  previewCreateNote: vi.fn(),
 }));
 
 const mockedAnswerQuestion = vi.mocked(answerQuestion);
+const mockedApplyCreateNotePreview = vi.mocked(applyCreateNotePreview);
+const mockedPreviewCreateNote = vi.mocked(previewCreateNote);
 
 const authSession = {
   account: {
@@ -38,8 +32,9 @@ const authSession = {
 
 describe('AssistantPage', () => {
   beforeEach(() => {
-    navigateMock.mockReset();
+    mockedApplyCreateNotePreview.mockReset();
     mockedAnswerQuestion.mockReset();
+    mockedPreviewCreateNote.mockReset();
   });
 
   it('prompts anonymous users to sign in', () => {
@@ -148,16 +143,56 @@ describe('AssistantPage', () => {
     expect(await screen.findByLabelText(/assistant answer/i)).toHaveTextContent(/short summary/i);
   });
 
-  it('opens the new-note page for create-note requests', async () => {
+  it('previews and applies create-note requests', async () => {
     const user = userEvent.setup();
+    mockedPreviewCreateNote.mockResolvedValue({
+      action: 'create_note',
+      changeType: 'create',
+      entityType: 'note',
+      preview: {
+        body: 'Lets make new note',
+        tags: 'make,note',
+        title: 'Lets make new note',
+      },
+      summary: 'Create a new note draft in the active workspace.',
+    });
+    mockedApplyCreateNotePreview.mockResolvedValue({
+      action: 'create_note',
+      changeType: 'create',
+      entity: {
+        archivedAt: null,
+        body: 'Lets make new note',
+        createdAt: '2026-06-01T15:00:00Z',
+        editorMode: 'RICH_TEXT',
+        favorite: false,
+        id: 'note-1',
+        linkedResources: '',
+        noteDate: '2026-06-01',
+        ownerAccountId: 'account-1',
+        pinned: false,
+        tags: 'make,note',
+        title: 'Lets make new note',
+        updatedAt: '2026-06-01T15:00:00Z',
+        workspaceContextId: 'workspace-1',
+      },
+      entityType: 'note',
+      summary: 'Created note "Lets make new note".',
+    });
 
     renderWithAuth(<AssistantPage />, authSession);
 
     await user.type(screen.getByLabelText(/message/i), 'Lets make new note');
     await user.click(screen.getByRole('button', { name: /send/i }));
 
-    expect(screen.getByText(/opening a new note editor/i)).toBeInTheDocument();
-    expect(navigateMock).toHaveBeenCalledWith('/notes/new');
+    expect(await screen.findByLabelText(/ai change preview/i)).toHaveTextContent(/lets make new note/i);
+    await user.click(screen.getByRole('button', { name: /apply/i }));
+
+    await waitFor(() => expect(mockedApplyCreateNotePreview).toHaveBeenCalledWith({
+      body: 'Lets make new note',
+      tags: 'make,note',
+      title: 'Lets make new note',
+    }));
+    expect(await screen.findByText(/created note "lets make new note"/i)).toBeInTheDocument();
     expect(mockedAnswerQuestion).not.toHaveBeenCalled();
   });
 });

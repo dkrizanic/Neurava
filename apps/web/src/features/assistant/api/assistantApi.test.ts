@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { answerQuestion, previewCreateNote, summarizeHistory } from './assistantApi';
+import { answerQuestion, applyCreateNotePreview, previewCreateNote, summarizeHistory } from './assistantApi';
 
 describe('assistantApi', () => {
   afterEach(() => {
@@ -68,6 +68,43 @@ describe('assistantApi', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8080/api/v1/ai/action-previews', expect.objectContaining({
       body: JSON.stringify({ action: 'create_note', input: { text: 'messy input' } }),
+      method: 'POST',
+    }));
+  });
+
+  it('applies create-note previews through the assistant application endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
+      action: 'create_note',
+      changeType: 'create',
+      entity: {
+        body: 'Clean body',
+        id: 'note-1',
+        noteDate: '2026-06-01',
+        tags: 'clean,body',
+        title: 'Clean title',
+      },
+      entityType: 'note',
+      summary: 'Created note "Clean title".',
+    }));
+
+    await expect(applyCreateNotePreview({
+      body: 'Clean body',
+      noteDate: '2026-06-01',
+      tags: 'clean,body',
+      title: 'Clean title',
+    })).resolves.toMatchObject({
+      entity: { title: 'Clean title' },
+    });
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8080/api/v1/ai/action-applications', expect.objectContaining({
+      body: JSON.stringify({
+        action: 'create_note',
+        input: {
+          body: 'Clean body',
+          noteDate: '2026-06-01',
+          tags: 'clean,body',
+          title: 'Clean title',
+        },
+      }),
       method: 'POST',
     }));
   });

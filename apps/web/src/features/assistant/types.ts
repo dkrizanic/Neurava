@@ -1,5 +1,6 @@
 import type { EntityId } from '../../shared/lib/ids';
 import type { MemorySearchMatch } from '../search/types';
+import type { Note } from '../notes/types';
 
 export type SourceReference = {
   id: EntityId;
@@ -58,6 +59,14 @@ export type AssistantActionPreviewResponse = {
   summary: string;
 };
 
+export type AssistantActionApplicationResponse = {
+  action: AssistantPreviewActionName;
+  changeType: 'create';
+  entity: Note;
+  entityType: 'note';
+  summary: string;
+};
+
 export type AssistantMessage =
   | {
       id: string;
@@ -67,6 +76,11 @@ export type AssistantMessage =
   | {
       answer: SourceAwareAnswer;
       id: string;
+      role: 'assistant';
+    }
+  | {
+      id: string;
+      preview: AssistantActionPreviewResponse;
       role: 'assistant';
     }
   | {
