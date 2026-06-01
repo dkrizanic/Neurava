@@ -19,17 +19,24 @@ import com.notebook.api.ai.domain.AiActionHistoryRecord;
 import com.notebook.api.ai.infrastructure.persistence.AiActionHistoryRepository;
 import com.notebook.api.notes.application.NoteService;
 import com.notebook.api.notes.application.NoteSummary;
+import com.notebook.api.plans.application.PlanService;
+import com.notebook.api.reminders.application.ReminderService;
 
 @Service
 public class AiActionHistoryService {
 
 	private final AiActionHistoryRepository history;
 	private final NoteService notes;
+	private final PlanService plans;
+	private final ReminderService reminders;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-	public AiActionHistoryService(AiActionHistoryRepository history, NoteService notes) {
+	public AiActionHistoryService(AiActionHistoryRepository history, NoteService notes, PlanService plans,
+			ReminderService reminders) {
 		this.history = history;
 		this.notes = notes;
+		this.plans = plans;
+		this.reminders = reminders;
 	}
 
 	@Transactional
@@ -45,6 +52,23 @@ public class AiActionHistoryService {
 				summary,
 				null,
 				noteState(note),
+				Instant.now());
+		return AiActionHistorySummary.from(this.history.save(record));
+	}
+
+	@Transactional
+	public AiActionHistorySummary recordCreatedEntity(UUID ownerAccountId, UUID workspaceContextId, String action,
+			String entityType, UUID entityId, String summary, String currentState) {
+		AiActionHistoryRecord record = AiActionHistoryRecord.create(
+				ownerAccountId,
+				workspaceContextId,
+				action,
+				entityType,
+				entityId,
+				"create",
+				summary,
+				null,
+				currentState,
 				Instant.now());
 		return AiActionHistorySummary.from(this.history.save(record));
 	}
@@ -81,8 +105,7 @@ public class AiActionHistoryService {
 		if (record.isReverted()) {
 			return AiActionHistorySummary.from(record);
 		}
-		if (!CREATE_NOTE.equals(record.getAction()) || !"note".equals(record.getEntityType())
-				|| !"create".equals(record.getChangeType())) {
+		if (!"create".equals(record.getChangeType())) {
 			if (FIX_NOTE_GRAMMAR.equals(record.getAction()) && "note".equals(record.getEntityType())
 					&& "update".equals(record.getChangeType())) {
 				return revertGrammarFix(record, workspaceContextId);
@@ -91,16 +114,45 @@ public class AiActionHistoryService {
 		}
 
 		try {
-			this.notes.delete(record.getEntityId(), workspaceContextId);
+			deleteCreatedEntity(record, workspaceContextId);
 		} catch (ResponseStatusException exception) {
 			if (exception.getStatusCode() == HttpStatus.NOT_FOUND) {
-				throw new AiActionRevertException("The note created by this AI action no longer exists.");
+				throw new AiActionRevertException(missingCreatedEntityMessage(record.getEntityType()));
 			}
 			throw exception;
 		}
 
-		record.markReverted("Removed AI-created note.", Instant.now());
+		record.markReverted("Removed AI-created %s.".formatted(record.getEntityType()), Instant.now());
 		return AiActionHistorySummary.from(record);
+	}
+
+	private void deleteCreatedEntity(AiActionHistoryRecord record, UUID workspaceContextId) {
+		if ("note".equals(record.getEntityType())) {
+			this.notes.delete(record.getEntityId(), workspaceContextId);
+			return;
+		}
+		if ("reminder".equals(record.getEntityType())) {
+			this.reminders.delete(record.getEntityId(), workspaceContextId);
+			return;
+		}
+		if ("plan".equals(record.getEntityType())) {
+			this.plans.delete(record.getEntityId(), workspaceContextId);
+			return;
+		}
+		throw new AiActionRevertException("This AI action cannot be reverted yet.");
+	}
+
+	private static String missingCreatedEntityMessage(String entityType) {
+		if ("note".equals(entityType)) {
+			return "The note created by this AI action no longer exists.";
+		}
+		if ("reminder".equals(entityType)) {
+			return "The reminder created by this AI action no longer exists.";
+		}
+		if ("plan".equals(entityType)) {
+			return "The plan created by this AI action no longer exists.";
+		}
+		return "The item created by this AI action no longer exists.";
 	}
 
 	private AiActionHistorySummary revertGrammarFix(AiActionHistoryRecord record, UUID workspaceContextId) {

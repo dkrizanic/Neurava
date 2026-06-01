@@ -21,7 +21,7 @@ class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 	OAuth2LoginSuccessHandler(AuthAccountService accounts, @Value("${app.web-origin:http://localhost:5173}") String webOrigin) {
 		this.accounts = accounts;
-		this.webOrigin = webOrigin;
+		this.webOrigin = webOrigin.split(",")[0].trim();
 	}
 
 	@Override

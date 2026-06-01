@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
@@ -85,6 +85,7 @@ describe('AssistantPage', () => {
     expect(screen.getByRole('heading', { name: /source references/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /api decision/i })).toBeInTheDocument();
     expect(screen.getByText(/93% match/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open note and edit/i })).toHaveAttribute('href', '/notes/note-1');
   });
 
   it('shows insufficient-context answer message in history', async () => {
@@ -215,14 +216,23 @@ describe('AssistantPage', () => {
     await user.type(screen.getByLabelText(/message/i), 'Lets make new note');
     await user.click(screen.getByRole('button', { name: /send/i }));
 
-    expect(await screen.findByLabelText(/ai change preview/i)).toHaveTextContent(/lets make new note/i);
-    await user.click(screen.getByRole('button', { name: /apply/i }));
+    const previewCard = await screen.findByLabelText(/ai change preview/i);
+    expect(previewCard).toBeInTheDocument();
+
+    const titleInput = within(previewCard).getByLabelText(/title/i);
+    const bodyInput = within(previewCard).getByLabelText(/body/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Polished note title');
+    await user.clear(bodyInput);
+    await user.type(bodyInput, 'Polished note body');
+
+    await user.click(within(previewCard).getByRole('button', { name: /apply/i }));
 
     await waitFor(() => expect(mockedApplyCreateNotePreview).toHaveBeenCalledWith({
-      body: 'Lets make new note',
+      body: 'Polished note body',
       linkedResources: 'https://example.com/input',
       tags: 'make,note',
-      title: 'Lets make new note',
+      title: 'Polished note title',
     }));
     expect(await screen.findByText(/it is now saved in notes/i)).toBeInTheDocument();
     expect(await screen.findByLabelText(/recent ai changes/i)).toHaveTextContent(/created note "lets make new note"/i);

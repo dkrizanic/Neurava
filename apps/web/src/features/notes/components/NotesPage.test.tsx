@@ -3,13 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { applyGrammarFix, previewGrammarFix } from '../api/noteAiApi';
+import { applyGrammarFix, previewGrammarFix, previewPrettifiedNoteDraft } from '../api/noteAiApi';
 import { archiveNote, createNote, fetchNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
 import { EditNotePage, NewNotePage, NotesPage } from './NotesPage';
 
 vi.mock('../api/noteAiApi', () => ({
   applyGrammarFix: vi.fn(),
   previewGrammarFix: vi.fn(),
+  previewPrettifiedNoteDraft: vi.fn(),
 }));
 
 vi.mock('../api/notesApi', () => ({
@@ -29,6 +30,7 @@ const mockedFetchNotes = vi.mocked(fetchNotes);
 const mockedOrganizeNote = vi.mocked(organizeNote);
 const mockedApplyGrammarFix = vi.mocked(applyGrammarFix);
 const mockedPreviewGrammarFix = vi.mocked(previewGrammarFix);
+const mockedPreviewPrettifiedNoteDraft = vi.mocked(previewPrettifiedNoteDraft);
 const mockedRestoreNote = vi.mocked(restoreNote);
 const mockedUpdateNote = vi.mocked(updateNote);
 
@@ -79,6 +81,7 @@ describe('NotesPage', () => {
     mockedOrganizeNote.mockReset();
     mockedApplyGrammarFix.mockReset();
     mockedPreviewGrammarFix.mockReset();
+    mockedPreviewPrettifiedNoteDraft.mockReset();
     mockedRestoreNote.mockReset();
     mockedUpdateNote.mockReset();
     vi.useRealTimers();
@@ -133,6 +136,55 @@ describe('NotesPage', () => {
       noteDate: '2026-05-30',
       title: 'First note',
     }));
+  });
+
+  it('previews and applies a grammar fix on the new note page before create', async () => {
+    const user = userEvent.setup();
+    mockedPreviewGrammarFix.mockResolvedValue({
+      currentBody: 'i dont recieve teh update',
+      noteId: 'new-note-draft',
+      proposedBody: "I don't receive the update",
+    });
+
+    renderWithAuth(<NewNotePage />, { ...authSession, initialPath: '/notes/new?date=2026-05-30' });
+
+    await user.type(screen.getByLabelText(/title/i), 'Draft with grammar');
+    await user.type(screen.getByLabelText(/body/i), 'i dont recieve teh update');
+    await user.click(screen.getByRole('button', { name: /grammar fix/i }));
+
+    await waitFor(() => expect(mockedPreviewGrammarFix).toHaveBeenCalledWith({
+      body: 'i dont recieve teh update',
+      noteId: 'new-note-draft',
+      title: 'Draft with grammar',
+    }));
+    expect(await screen.findByRole('region', { name: /grammar fix preview/i })).toHaveTextContent("I don't receive the update");
+
+    await user.click(screen.getByRole('button', { name: /apply fix/i }));
+    expect(await screen.findByLabelText(/body/i)).toHaveValue("I don't receive the update");
+  });
+
+  it('prettifies disorganized text on the new note page', async () => {
+    const user = userEvent.setup();
+    mockedPreviewPrettifiedNoteDraft.mockResolvedValue({
+      body: 'Cloud computing enables teams to deploy reliable services quickly and iterate with confidence.',
+      linkedResources: '',
+      tags: 'cloud,architecture',
+      title: 'Cloud Computing Summary',
+    });
+
+    renderWithAuth(<NewNotePage />, { ...authSession, initialPath: '/notes/new?date=2026-05-30' });
+
+    await user.type(screen.getByLabelText(/title/i), 'cloud');
+    await user.type(screen.getByLabelText(/body/i), 'cloud maybe scale infra random notes bullets and bad english');
+    await user.click(screen.getByRole('button', { name: /^prettify$/i }));
+
+    await waitFor(() => expect(mockedPreviewPrettifiedNoteDraft).toHaveBeenCalledWith(
+      'cloud\n\ncloud maybe scale infra random notes bullets and bad english',
+    ));
+    expect(await screen.findByLabelText(/title/i)).toHaveValue('Cloud Computing Summary');
+    expect(await screen.findByLabelText(/body/i)).toHaveValue(
+      'Cloud computing enables teams to deploy reliable services quickly and iterate with confidence.',
+    );
   });
 
   it('shows compact note cards and supports filters plus organization actions', async () => {
@@ -237,5 +289,36 @@ describe('NotesPage', () => {
       title: 'Grammar note',
     }));
     expect(await screen.findByDisplayValue("I don't receive the update")).toBeInTheDocument();
+  });
+
+  it('prettifies disorganized text on the edit page', async () => {
+    const user = userEvent.setup();
+    mockedFetchNote.mockResolvedValue({
+      ...note,
+      body: 'messy idea list with poor style and rushed writing',
+      title: 'raw note',
+    });
+    mockedPreviewPrettifiedNoteDraft.mockResolvedValue({
+      body: 'This note captures the key ideas in a clear structure with concise language and actionable framing.',
+      linkedResources: '',
+      tags: 'ideas,writing',
+      title: 'Refined Note',
+    });
+
+    renderWithAuth(
+      <Routes>
+        <Route element={<EditNotePage />} path="/notes/:noteId" />
+      </Routes>,
+      { ...authSession, initialPath: '/notes/note-1' },
+    );
+
+    expect(await screen.findByDisplayValue('raw note')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^prettify$/i }));
+
+    await waitFor(() => expect(mockedPreviewPrettifiedNoteDraft).toHaveBeenCalledWith(
+      'raw note\n\nmessy idea list with poor style and rushed writing',
+    ));
+    expect(await screen.findByDisplayValue('Refined Note')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/clear structure with concise language/i)).toBeInTheDocument();
   });
 });

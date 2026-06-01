@@ -1,8 +1,13 @@
 package com.notebook.api.ai.application;
 
 import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_NOTE;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_PLAN;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_REMINDER;
 import static com.notebook.api.ai.application.AssistantActionPreviewNames.FIX_NOTE_GRAMMAR;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.PRETTIFY_NOTE_DRAFT;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,24 +19,37 @@ import java.util.UUID;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AssistantActionPreviewService {
+
+	private static final Logger logger = LoggerFactory.getLogger(AssistantActionPreviewService.class);
 
 	private static final Set<String> STOP_WORDS = Set.of(
 			"about", "after", "again", "also", "because", "before", "could", "from", "have", "into",
 			"just", "need", "notes", "should", "that", "their", "there", "this", "with", "would");
 
 	private final Validator validator;
+	private final GrammarFixLlmService grammarFixLlm;
+	private final boolean grammarFallbackEnabled;
 
-	public AssistantActionPreviewService(Validator validator) {
+	public AssistantActionPreviewService(Validator validator, GrammarFixLlmService grammarFixLlm,
+			@Value("${app.ai.grammar-fix.fallback-enabled:false}") boolean grammarFallbackEnabled) {
 		this.validator = validator;
+		this.grammarFixLlm = grammarFixLlm;
+		this.grammarFallbackEnabled = grammarFallbackEnabled;
 	}
 
 	public AssistantActionPreviewResponse preview(UUID workspaceContextId, AssistantActionPreviewRequest request) {
 		return switch (request.action()) {
 			case CREATE_NOTE -> createNotePreview(request.input());
+			case PRETTIFY_NOTE_DRAFT -> prettifyNoteDraftPreview(request.input());
+			case CREATE_REMINDER -> createReminderPreview(request.input());
+			case CREATE_PLAN -> createPlanPreview(request.input());
 			case FIX_NOTE_GRAMMAR -> grammarFixPreview(request.input());
 			default -> throw new UnsupportedAssistantActionPreviewException(request.action());
 		};
@@ -52,15 +70,70 @@ public class AssistantActionPreviewService {
 				preview);
 	}
 
+	private AssistantActionPreviewResponse createReminderPreview(Map<String, Object> inputNode) {
+		CreateReminderPreviewInput input = validateInput(new CreateReminderPreviewInput(textField(inputNode, "text")));
+		ReminderChangePreview preview = new ReminderChangePreview(
+				titleFrom(input.text()),
+				bodyFrom(input.text()),
+				Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MINUTES),
+				"",
+				true);
+		return new AssistantActionPreviewResponse(
+				CREATE_REMINDER,
+				"reminder",
+				"create",
+				"Create a reminder preview from this request.",
+				preview);
+	}
+
+	private AssistantActionPreviewResponse prettifyNoteDraftPreview(Map<String, Object> inputNode) {
+		CreateNotePreviewInput input = validateInput(new CreateNotePreviewInput(textField(inputNode, "text")));
+		NoteChangePreview preview = this.grammarFixLlm.prettifyDraft(input.text());
+		return new AssistantActionPreviewResponse(
+				PRETTIFY_NOTE_DRAFT,
+				"note",
+				"update",
+				"Prettify this draft into a polished note.",
+				preview);
+	}
+
+	private AssistantActionPreviewResponse createPlanPreview(Map<String, Object> inputNode) {
+		CreatePlanPreviewInput input = validateInput(new CreatePlanPreviewInput(textField(inputNode, "goal")));
+		PlanChangePreview preview = new PlanChangePreview(
+				titleFrom(input.goal()),
+				input.goal().strip(),
+				planItemsFrom(input.goal()),
+				linksFrom(input.goal()));
+		return new AssistantActionPreviewResponse(
+				CREATE_PLAN,
+				"plan",
+				"create",
+				"Create a practical plan preview.",
+				preview);
+	}
+
 	private AssistantActionPreviewResponse grammarFixPreview(Map<String, Object> inputNode) {
 		GrammarFixPreviewInput input = validateInput(new GrammarFixPreviewInput(
 				textField(inputNode, "noteId"),
 				nullableTextField(inputNode, "title"),
 				textField(inputNode, "body")));
+		String proposedBody;
+		try {
+			proposedBody = this.grammarFixLlm.fix(input.body());
+			logger.debug("Grammar fix preview used LLM for noteId={}", input.noteId());
+		} catch (RuntimeException exception) {
+			if (!this.grammarFallbackEnabled) {
+				logger.warn("Grammar fix preview failed with LLM and fallback is disabled for noteId={}",
+						input.noteId(), exception);
+				throw exception;
+			}
+			logger.warn("Grammar fix preview fell back to deterministic fixer for noteId={}", input.noteId(), exception);
+			proposedBody = grammarFixed(input.body());
+		}
 		GrammarFixPreview preview = new GrammarFixPreview(
 				input.noteId(),
 				input.body(),
-				grammarFixed(input.body()));
+				proposedBody);
 		return new AssistantActionPreviewResponse(
 				FIX_NOTE_GRAMMAR,
 				"note",
@@ -122,6 +195,15 @@ public class AssistantActionPreviewService {
 			}
 		}
 		return String.join("\n", links);
+	}
+
+	private static String planItemsFrom(String goal) {
+		String cleanGoal = goal.strip();
+		return String.join("\n",
+				"1. Clarify the outcome: " + cleanGoal,
+				"2. Collect related notes, reminders, and calendar context.",
+				"3. Schedule the next focused work block.",
+				"4. Review progress and adjust the next action.");
 	}
 
 	private static String textField(Map<String, Object> inputNode, String fieldName) {

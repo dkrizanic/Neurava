@@ -1,0 +1,8 @@
+spring:
+  profiles:
+    default: local
+
+app:
+  ai:
+    grammar-fix:
+      fallback-enabled: true

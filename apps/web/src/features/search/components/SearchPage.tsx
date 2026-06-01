@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
@@ -111,6 +112,9 @@ export function SearchPage() {
               <div className="memory-result__meta">
                 <time dateTime={match.sourceUpdatedAt}>{formatIsoDateTime(match.sourceUpdatedAt)}</time>
                 <span>{Math.round(match.score * 100)}% match</span>
+                <Link className="ui-link-button" to={`/notes/${match.sourceId}`}>
+                  Open details and edit
+                </Link>
               </div>
             </article>
           ))}

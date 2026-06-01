@@ -4,7 +4,12 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, EmptyState, Field, LoadingState } from '../../../shared/ui';
-import { applyGrammarFix, previewGrammarFix, type GrammarFixPreview } from '../api/noteAiApi';
+import {
+  applyGrammarFix,
+  previewGrammarFix,
+  previewPrettifiedNoteDraft,
+  type GrammarFixPreview,
+} from '../api/noteAiApi';
 import { archiveNote, createNote, fetchNote, fetchNotes, organizeNote, restoreNote, updateNote } from '../api/notesApi';
 import type { Note } from '../types';
 
@@ -294,6 +299,7 @@ export function EditNotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [grammarPreview, setGrammarPreview] = useState<GrammarFixPreview | null>(null);
   const [isGrammarLoading, setIsGrammarLoading] = useState(false);
+  const [isPrettifyLoading, setIsPrettifyLoading] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !noteId) {
@@ -415,6 +421,27 @@ export function EditNotePage() {
     }
   }
 
+  async function prettifyDraft() {
+    if (!body.trim()) {
+      setError('Body is required for prettify.');
+      return;
+    }
+
+    setIsPrettifyLoading(true);
+    setError(null);
+    try {
+      const prompt = [title.trim(), body].filter(Boolean).join('\n\n');
+      const prettified = await previewPrettifiedNoteDraft(prompt);
+      setTitle(prettified.title);
+      setBody(prettified.body);
+      setGrammarPreview(null);
+    } catch {
+      setError('Prettify could not be generated.');
+    } finally {
+      setIsPrettifyLoading(false);
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="route-stack">
@@ -467,6 +494,15 @@ export function EditNotePage() {
           </label>
           <div className="note-composer__actions">
             <Button
+              disabled={isPrettifyLoading || !body.trim()}
+              icon={<Sparkles aria-hidden="true" className="prettify-star-icon" size={18} />}
+              onClick={() => void prettifyDraft()}
+              type="button"
+              variant="secondary"
+            >
+              {isPrettifyLoading ? 'Prettifying' : 'Prettify'}
+            </Button>
+            <Button
               disabled={isGrammarLoading || !body.trim()}
               icon={<Sparkles aria-hidden="true" size={18} />}
               onClick={() => void previewGrammar()}
@@ -517,6 +553,66 @@ export function NewNotePage() {
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [grammarPreview, setGrammarPreview] = useState<GrammarFixPreview | null>(null);
+  const [isGrammarLoading, setIsGrammarLoading] = useState(false);
+  const [isPrettifyLoading, setIsPrettifyLoading] = useState(false);
+
+  async function previewGrammar() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('Title is required.');
+      return;
+    }
+    if (!body.trim()) {
+      setError('Body is required for grammar fix.');
+      return;
+    }
+
+    setIsGrammarLoading(true);
+    setError(null);
+    try {
+      const preview = await previewGrammarFix({
+        body,
+        noteId: 'new-note-draft',
+        title: trimmedTitle,
+      });
+      setGrammarPreview(preview);
+    } catch {
+      setError('Grammar fix could not be previewed.');
+    } finally {
+      setIsGrammarLoading(false);
+    }
+  }
+
+  function applyGrammarToDraft() {
+    if (!grammarPreview) {
+      return;
+    }
+
+    setBody(grammarPreview.proposedBody);
+    setGrammarPreview(null);
+  }
+
+  async function prettifyDraft() {
+    if (!body.trim()) {
+      setError('Body is required for prettify.');
+      return;
+    }
+
+    setIsPrettifyLoading(true);
+    setError(null);
+    try {
+      const prompt = [title.trim(), body].filter(Boolean).join('\n\n');
+      const prettified = await previewPrettifiedNoteDraft(prompt);
+      setTitle(prettified.title);
+      setBody(prettified.body);
+      setGrammarPreview(null);
+    } catch {
+      setError('Prettify could not be generated.');
+    } finally {
+      setIsPrettifyLoading(false);
+    }
+  }
 
   async function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -587,11 +683,54 @@ export function NewNotePage() {
             id="note-body"
             maxLength={20000}
             name="note-body"
-            onChange={(event) => setBody(event.target.value)}
+            onChange={(event) => {
+              setBody(event.target.value);
+              setGrammarPreview(null);
+            }}
             placeholder="Write the details here"
             value={body}
           />
         </label>
+        <div className="note-composer__actions">
+          <Button
+            disabled={isPrettifyLoading || !body.trim()}
+            icon={<Sparkles aria-hidden="true" className="prettify-star-icon" size={18} />}
+            onClick={() => void prettifyDraft()}
+            type="button"
+            variant="secondary"
+          >
+            {isPrettifyLoading ? 'Prettifying' : 'Prettify'}
+          </Button>
+          <Button
+            disabled={isGrammarLoading || !body.trim()}
+            icon={<Sparkles aria-hidden="true" size={18} />}
+            onClick={() => void previewGrammar()}
+            type="button"
+            variant="secondary"
+          >
+            {isGrammarLoading && !grammarPreview ? 'Checking' : 'Grammar fix'}
+          </Button>
+        </div>
+        {grammarPreview ? (
+          <section className="grammar-preview" aria-label="Grammar fix preview">
+            <div>
+              <h3>Current</h3>
+              <p>{grammarPreview.currentBody}</p>
+            </div>
+            <div>
+              <h3>Proposed</h3>
+              <p>{grammarPreview.proposedBody}</p>
+            </div>
+            <div className="grammar-preview__actions">
+              <Button disabled={isGrammarLoading} onClick={applyGrammarToDraft} type="button" variant="primary">
+                Apply fix
+              </Button>
+              <Button disabled={isGrammarLoading} onClick={() => setGrammarPreview(null)} type="button" variant="secondary">
+                Cancel
+              </Button>
+            </div>
+          </section>
+        ) : null}
         {error && title.trim() ? <p className="session-warning">{error}</p> : null}
         <Button disabled={isSubmitting} icon={<Plus aria-hidden="true" size={18} />} type="submit" variant="primary">
           {isSubmitting ? 'Saving' : 'Create note'}

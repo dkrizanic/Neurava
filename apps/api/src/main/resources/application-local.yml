@@ -1,4 +1,9 @@
 spring:
+  config:
+    import: optional:file:.env[.properties],optional:file:../../.env[.properties]
+  docker:
+    compose:
+      enabled: false
   datasource:
     url: jdbc:postgresql://localhost:5432/notebook
     username: notebook
@@ -11,10 +16,17 @@ spring:
     enabled: true
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY:}
+      api-key: ${OPENAI_API_KEY:${OPENROUTER_API_KEY:}}
+      base-url: ${OPENAI_BASE_URL:https://openrouter.ai/api}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:openai/gpt-4o-mini}
 
 app:
   web-origin: ${APP_WEB_ORIGIN:http://localhost:5173}
+  ai:
+    grammar-fix:
+      fallback-enabled: ${APP_AI_GRAMMAR_FIX_FALLBACK_ENABLED:false}
 
 server:
   servlet:

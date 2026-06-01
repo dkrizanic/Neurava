@@ -1,6 +1,8 @@
 import type { EntityId } from '../../shared/lib/ids';
 import type { MemorySearchMatch } from '../search/types';
 import type { Note } from '../notes/types';
+import type { Plan } from '../plans/types';
+import type { Reminder } from '../reminders/types';
 
 export type SourceReference = {
   id: EntityId;
@@ -43,7 +45,7 @@ export type AssistantActionResponse<TAction extends AssistantActionName> = {
   result: AssistantActionResultByName[TAction];
 };
 
-export type AssistantPreviewActionName = 'create_note' | 'fix_note_grammar';
+export type AssistantPreviewActionName = 'create_note' | 'create_plan' | 'create_reminder' | 'fix_note_grammar';
 
 export type NoteChangePreview = {
   body: string;
@@ -52,19 +54,34 @@ export type NoteChangePreview = {
   title: string;
 };
 
+export type ReminderChangePreview = {
+  calendarSyncEnabled: boolean;
+  details: string;
+  dueAt: string;
+  relatedContext: string;
+  title: string;
+};
+
+export type PlanChangePreview = {
+  goal: string;
+  items: string;
+  linkedResources: string;
+  title: string;
+};
+
 export type AssistantActionPreviewResponse = {
   action: AssistantPreviewActionName;
   changeType: 'create' | 'update';
-  entityType: 'note';
-  preview: NoteChangePreview;
+  entityType: 'note' | 'plan' | 'reminder';
+  preview: NoteChangePreview | PlanChangePreview | ReminderChangePreview;
   summary: string;
 };
 
 export type AssistantActionApplicationResponse = {
   action: AssistantPreviewActionName;
   changeType: 'create' | 'update';
-  entity: Note;
-  entityType: 'note';
+  entity: Note | Plan | Reminder;
+  entityType: 'note' | 'plan' | 'reminder';
   summary: string;
 };
 
@@ -74,7 +91,7 @@ export type AiActionHistorySummary = {
   createdAt: string;
   currentState: string;
   entityId: EntityId;
-  entityType: 'note';
+  entityType: 'note' | 'plan' | 'reminder';
   id: EntityId;
   ownerAccountId: EntityId;
   previousState: string | null;

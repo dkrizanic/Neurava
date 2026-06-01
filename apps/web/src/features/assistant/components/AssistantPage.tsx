@@ -1,5 +1,6 @@
 import { Bot, Check, RotateCcw, Send, X } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
@@ -7,14 +8,21 @@ import { formatIsoDateTime } from '../../../shared/lib/dates';
 import {
   answerQuestion,
   applyCreateNotePreview,
+  applyPlanPreview,
+  applyReminderPreview,
   fetchAiActionHistory,
+  previewCreatePlan,
   previewCreateNote,
+  previewCreateReminder,
   revertAiAction,
 } from '../api/assistantApi';
 import type {
   AiActionHistorySummary,
   AssistantMessage,
   AssistantActionPreviewResponse,
+  NoteChangePreview,
+  PlanChangePreview,
+  ReminderChangePreview,
   SourceReference,
 } from '../types';
 
@@ -29,6 +37,8 @@ export function AssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [applyingMessageId, setApplyingMessageId] = useState<string | null>(null);
   const [lastRequest, setLastRequest] = useState<string | null>(null);
+  const threadRef = useRef<HTMLElement | null>(null);
+  const stickToBottomRef = useRef(true);
   const latestMessage = messages.at(-1);
   const canRetry = Boolean(
     lastRequest
@@ -47,6 +57,29 @@ export function AssistantPage() {
     return () => controller.abort();
   }, [authenticated]);
 
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!thread) {
+      return undefined;
+    }
+
+    const onScroll = () => {
+      const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 32;
+    };
+
+    thread.addEventListener('scroll', onScroll);
+    return () => thread.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!thread || !stickToBottomRef.current) {
+      return;
+    }
+    thread.scrollTop = thread.scrollHeight;
+  }, [isLoading, messages]);
+
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await sendPrompt(question);
@@ -61,6 +94,38 @@ export function AssistantPage() {
 
     setError(null);
 
+    if (isCreateReminderRequest(trimmedPrompt)) {
+      setLastRequest(trimmedPrompt);
+      appendMessages([userMessage(trimmedPrompt)]);
+      setQuestion('');
+      setIsLoading(true);
+      try {
+        const preview = await previewCreateReminder(trimmedPrompt);
+        appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
+      } catch (previewError) {
+        appendMessages([assistantTextMessage('error', assistantApiMessage(previewError, 'Reminder preview could not be loaded.'))]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    if (isCreatePlanRequest(trimmedPrompt)) {
+      setLastRequest(trimmedPrompt);
+      appendMessages([userMessage(trimmedPrompt)]);
+      setQuestion('');
+      setIsLoading(true);
+      try {
+        const preview = await previewCreatePlan(trimmedPrompt);
+        appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
+      } catch (previewError) {
+        appendMessages([assistantTextMessage('error', assistantApiMessage(previewError, 'Plan preview could not be loaded.'))]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     if (isCreateNoteRequest(trimmedPrompt)) {
       setLastRequest(trimmedPrompt);
       appendMessages([userMessage(trimmedPrompt)]);
@@ -69,8 +134,8 @@ export function AssistantPage() {
       try {
         const preview = await previewCreateNote(trimmedPrompt);
         appendMessages([{ id: messageId(), preview, role: 'assistant' }]);
-      } catch {
-        appendMessages([assistantTextMessage('error', 'Note preview could not be loaded.')]);
+      } catch (previewError) {
+        appendMessages([assistantTextMessage('error', assistantApiMessage(previewError, 'Note preview could not be loaded.'))]);
       } finally {
         setIsLoading(false);
       }
@@ -94,8 +159,8 @@ export function AssistantPage() {
     try {
       const answer = await answerQuestion(trimmedPrompt);
       appendMessages([{ answer, id: messageId(), role: 'assistant' }]);
-    } catch {
-      appendMessages([assistantTextMessage('error', 'Assistant response could not be loaded.')]);
+    } catch (answerError) {
+      appendMessages([assistantTextMessage('error', assistantApiMessage(answerError, 'Assistant response could not be loaded.'))]);
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +186,7 @@ export function AssistantPage() {
       if (loadError instanceof DOMException && loadError.name === 'AbortError') {
         return;
       }
-      setHistoryError('AI action history could not be loaded.');
+      setHistoryError(assistantApiMessage(loadError, 'AI action history could not be loaded.'));
     }
   }
 
@@ -131,12 +196,12 @@ export function AssistantPage() {
     }
     setApplyingMessageId(messageIdToApply);
     try {
-      const applied = await applyCreateNotePreview(preview.preview);
+      const applied = await applyAssistantPreview(preview);
       setMessages((current) => current.filter((message) => message.id !== messageIdToApply));
-      appendMessages([assistantTextMessage('status', `${applied.summary} It is now saved in Notes.`)]);
+      appendMessages([assistantTextMessage('status', savedStatus(applied.summary, applied.entityType))]);
       await loadHistory();
-    } catch {
-      appendMessages([assistantTextMessage('error', 'Note change could not be applied.')]);
+    } catch (applyError) {
+      appendMessages([assistantTextMessage('error', assistantApiMessage(applyError, 'AI change could not be applied.'))]);
     } finally {
       setApplyingMessageId(null);
     }
@@ -156,8 +221,13 @@ export function AssistantPage() {
       setHistory((current) => current.map((item) => (item.id === reverted.id ? reverted : item)));
       appendMessages([assistantTextMessage('status', reverted.revertSummary ?? 'AI action reverted.')]);
       await loadHistory();
-    } catch {
-      appendMessages([assistantTextMessage('error', 'AI action could not be reverted. The related data may no longer exist.')]);
+    } catch (revertError) {
+      appendMessages([
+        assistantTextMessage(
+          'error',
+          assistantApiMessage(revertError, 'AI action could not be reverted. The related data may no longer exist.'),
+        ),
+      ]);
     } finally {
       setRevertingHistoryId(null);
     }
@@ -183,7 +253,7 @@ export function AssistantPage() {
         <p>Ask anything about your workspace. The assistant will use your notes as source context when it can.</p>
       </header>
 
-      <section className="assistant-thread" aria-label="Assistant conversation">
+      <section className="assistant-thread" aria-label="Assistant conversation" ref={threadRef}>
         {messages.length === 0 ? (
           <div className="assistant-thread__empty">
             <Bot aria-hidden="true" size={24} />
@@ -251,7 +321,7 @@ export function AssistantPage() {
             </div>
             <div className="assistant-history__meta">
               <time dateTime={record.createdAt}>{formatIsoDateTime(record.createdAt)}</time>
-              {!record.revertedAt && record.action === 'create_note' && record.entityType === 'note' ? (
+              {!record.revertedAt && record.changeType === 'create' ? (
                 <Button
                   disabled={revertingHistoryId === record.id}
                   icon={<RotateCcw aria-hidden="true" size={16} />}
@@ -268,6 +338,32 @@ export function AssistantPage() {
       </section>
     </div>
   );
+}
+
+function savedStatus(summary: string, entityType: string) {
+  if (entityType === 'note') {
+    return `${summary} It is now saved in Notes.`;
+  }
+  if (entityType === 'reminder') {
+    return `${summary} It is now saved in Reminders.`;
+  }
+  if (entityType === 'plan') {
+    return `${summary} It is now saved in Plans.`;
+  }
+  return `${summary} It is now saved.`;
+}
+
+function applyAssistantPreview(preview: AssistantActionPreviewResponse) {
+  if (preview.action === 'create_note') {
+    return applyCreateNotePreview(preview.preview as NoteChangePreview);
+  }
+  if (preview.action === 'create_reminder') {
+    return applyReminderPreview(preview.preview as ReminderChangePreview);
+  }
+  if (preview.action === 'create_plan') {
+    return applyPlanPreview(preview.preview as PlanChangePreview);
+  }
+  throw new Error(`Unsupported preview action: ${preview.action}`);
 }
 
 function AssistantMessageItem({
@@ -300,50 +396,14 @@ function AssistantMessageItem({
   }
 
   if ('preview' in message) {
-    const isApplying = applyingMessageId === message.id;
     return (
-      <article className="assistant-message assistant-message--assistant" aria-label="AI change preview">
-        <p className="eyebrow">Preview</p>
-        <h3>{message.preview.summary}</h3>
-        <dl className="assistant-preview">
-          <div>
-            <dt>Title</dt>
-            <dd>{message.preview.preview.title}</dd>
-          </div>
-          <div>
-            <dt>Body</dt>
-            <dd>{message.preview.preview.body}</dd>
-          </div>
-          <div>
-            <dt>Tags</dt>
-            <dd>{message.preview.preview.tags || 'No tags suggested'}</dd>
-          </div>
-          <div>
-            <dt>Links</dt>
-            <dd>{message.preview.preview.linkedResources || 'No links suggested'}</dd>
-          </div>
-        </dl>
-        <div className="assistant-preview__actions">
-          <Button
-            disabled={isApplying}
-            icon={<Check aria-hidden="true" size={16} />}
-            onClick={() => onApplyPreview(message.preview)}
-            type="button"
-            variant="primary"
-          >
-            {isApplying ? 'Applying' : 'Apply'}
-          </Button>
-          <Button
-            disabled={isApplying}
-            icon={<X aria-hidden="true" size={16} />}
-            onClick={onCancelPreview}
-            type="button"
-            variant="secondary"
-          >
-            Cancel
-          </Button>
-        </div>
-      </article>
+      <PreviewMessageItem
+        applyingMessageId={applyingMessageId}
+        messageId={message.id}
+        onApplyPreview={onApplyPreview}
+        onCancelPreview={onCancelPreview}
+        preview={message.preview}
+      />
     );
   }
 
@@ -362,6 +422,189 @@ function AssistantMessageItem({
         </>
       )}
     </article>
+  );
+}
+
+function PreviewMessageItem({
+  applyingMessageId,
+  messageId,
+  onApplyPreview,
+  onCancelPreview,
+  preview,
+}: {
+  applyingMessageId: string | null;
+  messageId: string;
+  onApplyPreview: (preview: AssistantActionPreviewResponse) => void;
+  onCancelPreview: () => void;
+  preview: AssistantActionPreviewResponse;
+}) {
+  const [draftPreview, setDraftPreview] = useState(preview);
+  const isApplying = applyingMessageId === messageId;
+
+  useEffect(() => {
+    setDraftPreview(preview);
+  }, [preview]);
+
+  return (
+    <article className="assistant-message assistant-message--assistant" aria-label="AI change preview">
+      <p className="eyebrow">Preview</p>
+      <h3>{draftPreview.summary}</h3>
+      <PreviewEditor preview={draftPreview} setPreview={setDraftPreview} />
+      <div className="assistant-preview__actions">
+        <Button
+          disabled={isApplying}
+          icon={<Check aria-hidden="true" size={16} />}
+          onClick={() => onApplyPreview(draftPreview)}
+          type="button"
+          variant="primary"
+        >
+          {isApplying ? 'Applying' : 'Apply'}
+        </Button>
+        <Button
+          disabled={isApplying}
+          icon={<X aria-hidden="true" size={16} />}
+          onClick={onCancelPreview}
+          type="button"
+          variant="secondary"
+        >
+          Cancel
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function PreviewEditor({
+  preview,
+  setPreview,
+}: {
+  preview: AssistantActionPreviewResponse;
+  setPreview: (preview: AssistantActionPreviewResponse) => void;
+}) {
+  if (preview.entityType === 'note') {
+    const note = preview.preview as NoteChangePreview;
+    return (
+      <div className="assistant-preview-editable-grid">
+        <label className="assistant-preview-field">
+          <span>Title</span>
+          <input
+            onChange={(event) => setPreview({ ...preview, preview: { ...note, title: event.target.value } })}
+            type="text"
+            value={note.title}
+          />
+        </label>
+        <label className="assistant-preview-field">
+          <span>Body</span>
+          <textarea
+            onChange={(event) => setPreview({ ...preview, preview: { ...note, body: event.target.value } })}
+            rows={4}
+            value={note.body}
+          />
+        </label>
+        <label className="assistant-preview-field">
+          <span>Tags</span>
+          <input
+            onChange={(event) => setPreview({ ...preview, preview: { ...note, tags: event.target.value } })}
+            placeholder="No tags suggested"
+            type="text"
+            value={note.tags}
+          />
+        </label>
+        <label className="assistant-preview-field">
+          <span>Links</span>
+          <textarea
+            onChange={(event) => setPreview({ ...preview, preview: { ...note, linkedResources: event.target.value } })}
+            placeholder="No links suggested"
+            rows={3}
+            value={note.linkedResources}
+          />
+        </label>
+      </div>
+    );
+  }
+  if (preview.entityType === 'reminder') {
+    const reminder = preview.preview as ReminderChangePreview;
+    return (
+      <div className="assistant-preview-editable-grid">
+        <label className="assistant-preview-field">
+          <span>Title</span>
+          <input
+            onChange={(event) => setPreview({ ...preview, preview: { ...reminder, title: event.target.value } })}
+            type="text"
+            value={reminder.title}
+          />
+        </label>
+        <label className="assistant-preview-field">
+          <span>Details</span>
+          <textarea
+            onChange={(event) => setPreview({ ...preview, preview: { ...reminder, details: event.target.value } })}
+            rows={3}
+            value={reminder.details}
+          />
+        </label>
+        <label className="assistant-preview-field">
+          <span>Due</span>
+          <input
+            onChange={(event) => setPreview({ ...preview, preview: { ...reminder, dueAt: event.target.value } })}
+            type="text"
+            value={reminder.dueAt}
+          />
+        </label>
+        <label className="assistant-preview-field assistant-preview-field--inline">
+          <input
+            checked={reminder.calendarSyncEnabled}
+            onChange={(event) => setPreview({ ...preview, preview: { ...reminder, calendarSyncEnabled: event.target.checked } })}
+            type="checkbox"
+          />
+          <span>Calendar sync</span>
+        </label>
+        <label className="assistant-preview-field">
+          <span>Related context</span>
+          <textarea
+            onChange={(event) => setPreview({ ...preview, preview: { ...reminder, relatedContext: event.target.value } })}
+            rows={2}
+            value={reminder.relatedContext}
+          />
+        </label>
+      </div>
+    );
+  }
+  const plan = preview.preview as PlanChangePreview;
+  return (
+    <div className="assistant-preview-editable-grid">
+      <label className="assistant-preview-field">
+        <span>Title</span>
+        <input
+          onChange={(event) => setPreview({ ...preview, preview: { ...plan, title: event.target.value } })}
+          type="text"
+          value={plan.title}
+        />
+      </label>
+      <label className="assistant-preview-field">
+        <span>Goal</span>
+        <textarea
+          onChange={(event) => setPreview({ ...preview, preview: { ...plan, goal: event.target.value } })}
+          rows={2}
+          value={plan.goal}
+        />
+      </label>
+      <label className="assistant-preview-field">
+        <span>Items</span>
+        <textarea
+          onChange={(event) => setPreview({ ...preview, preview: { ...plan, items: event.target.value } })}
+          rows={4}
+          value={plan.items}
+        />
+      </label>
+      <label className="assistant-preview-field">
+        <span>Links</span>
+        <textarea
+          onChange={(event) => setPreview({ ...preview, preview: { ...plan, linkedResources: event.target.value } })}
+          rows={2}
+          value={plan.linkedResources}
+        />
+      </label>
+    </div>
   );
 }
 
@@ -384,6 +627,11 @@ function SourceReferences({ sources }: { sources: SourceReference[] }) {
             <time dateTime={source.sourceUpdatedAt}>{formatIsoDateTime(source.sourceUpdatedAt)}</time>
             <span>{Math.round(source.score * 100)}% match</span>
           </div>
+          {source.type === 'note' ? (
+            <Link className="assistant-source__open-link" to={`/notes/${source.id}`}>
+              Open note and edit
+            </Link>
+          ) : null}
         </article>
       ))}
     </section>
@@ -398,6 +646,18 @@ function isCreateNoteRequest(prompt: string) {
   const normalized = prompt.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   return /\b(?:create|make|add|new|start|write)\b.*\bnotes?\b/.test(normalized)
     || /\bnotes?\b.*\b(?:create|make|add|new|start|write)\b/.test(normalized);
+}
+
+function isCreateReminderRequest(prompt: string) {
+  const normalized = prompt.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return /\b(?:create|make|add|new|set)\b.*\breminders?\b/.test(normalized)
+    || /\breminders?\b.*\b(?:create|make|add|new|set)\b/.test(normalized);
+}
+
+function isCreatePlanRequest(prompt: string) {
+  const normalized = prompt.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return /\b(?:create|make|add|new|generate|build)\b.*\bplans?\b/.test(normalized)
+    || /\bplans?\b.*\b(?:create|make|add|new|generate|build)\b/.test(normalized);
 }
 
 function userMessage(text: string): AssistantMessage {
@@ -416,6 +676,13 @@ function assistantTextLabel(type: 'clarification' | 'error' | 'status') {
     return 'Assistant';
   }
   return 'Clarifying question';
+}
+
+function assistantApiMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message === 'AUTH_REQUIRED') {
+    return 'Your API session is not signed in. Sign in again, then retry the request.';
+  }
+  return fallback;
 }
 
 function messageId() {

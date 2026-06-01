@@ -1,6 +1,8 @@
 package com.notebook.api.ai.application;
 
 import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_NOTE;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_PLAN;
+import static com.notebook.api.ai.application.AssistantActionPreviewNames.CREATE_REMINDER;
 import static com.notebook.api.ai.application.AssistantActionPreviewNames.FIX_NOTE_GRAMMAR;
 
 import java.util.List;
@@ -14,16 +16,25 @@ import org.springframework.stereotype.Service;
 
 import com.notebook.api.notes.application.NoteService;
 import com.notebook.api.notes.application.NoteSummary;
+import com.notebook.api.plans.application.PlanService;
+import com.notebook.api.plans.application.PlanSummary;
+import com.notebook.api.reminders.application.ReminderService;
+import com.notebook.api.reminders.application.ReminderSummary;
 
 @Service
 public class AssistantActionApplicationService {
 
 	private final NoteService notes;
+	private final PlanService plans;
+	private final ReminderService reminders;
 	private final AiActionHistoryService history;
 	private final Validator validator;
 
-	public AssistantActionApplicationService(NoteService notes, AiActionHistoryService history, Validator validator) {
+	public AssistantActionApplicationService(NoteService notes, PlanService plans, ReminderService reminders,
+			AiActionHistoryService history, Validator validator) {
 		this.notes = notes;
+		this.plans = plans;
+		this.reminders = reminders;
 		this.history = history;
 		this.validator = validator;
 	}
@@ -32,6 +43,8 @@ public class AssistantActionApplicationService {
 			AssistantActionApplicationRequest request) {
 		return switch (request.action()) {
 			case CREATE_NOTE -> applyCreateNote(ownerAccountId, workspaceContextId, request.input());
+			case CREATE_REMINDER -> applyCreateReminder(ownerAccountId, workspaceContextId, request.input());
+			case CREATE_PLAN -> applyCreatePlan(ownerAccountId, workspaceContextId, request.input());
 			case FIX_NOTE_GRAMMAR -> applyGrammarFix(ownerAccountId, workspaceContextId, request.input());
 			default -> throw new UnsupportedAssistantActionApplicationException(request.action());
 		};
@@ -57,6 +70,37 @@ public class AssistantActionApplicationService {
 				"create",
 				summary,
 				entity);
+	}
+
+	private AssistantActionApplicationResponse applyCreateReminder(UUID ownerAccountId, UUID workspaceContextId,
+			Map<String, Object> inputNode) {
+		CreateReminderApplyInput input = validateInput(new CreateReminderApplyInput(
+				textField(inputNode, "title"),
+				nullableTextField(inputNode, "details"),
+				instantField(inputNode, "dueAt"),
+				nullableTextField(inputNode, "relatedContext"),
+				booleanField(inputNode, "calendarSyncEnabled")));
+		ReminderSummary entity = this.reminders.create(ownerAccountId, workspaceContextId, input.title(), input.details(),
+				input.dueAt(), input.relatedContext(), input.calendarSyncEnabled());
+		String summary = "Created reminder \"%s\".".formatted(entity.title());
+		this.history.recordCreatedEntity(ownerAccountId, workspaceContextId, CREATE_REMINDER, "reminder", entity.id(),
+				summary, entity.toString());
+		return new AssistantActionApplicationResponse(CREATE_REMINDER, "reminder", "create", summary, entity);
+	}
+
+	private AssistantActionApplicationResponse applyCreatePlan(UUID ownerAccountId, UUID workspaceContextId,
+			Map<String, Object> inputNode) {
+		CreatePlanApplyInput input = validateInput(new CreatePlanApplyInput(
+				textField(inputNode, "title"),
+				nullableTextField(inputNode, "goal"),
+				nullableTextField(inputNode, "items"),
+				nullableTextField(inputNode, "linkedResources")));
+		PlanSummary entity = this.plans.create(ownerAccountId, workspaceContextId, input.title(), input.goal(),
+				input.items(), input.linkedResources());
+		String summary = "Created plan \"%s\".".formatted(entity.title());
+		this.history.recordCreatedEntity(ownerAccountId, workspaceContextId, CREATE_PLAN, "plan", entity.id(), summary,
+				entity.toString());
+		return new AssistantActionApplicationResponse(CREATE_PLAN, "plan", "create", summary, entity);
 	}
 
 	private AssistantActionApplicationResponse applyGrammarFix(UUID ownerAccountId, UUID workspaceContextId,
@@ -137,6 +181,35 @@ public class AssistantActionApplicationService {
 			throw new InvalidAssistantActionInputException(
 					List.of(new AssistantActionInputError(fieldName, "Value must be an ISO date.")));
 		}
+	}
+
+	private static java.time.Instant instantField(Map<String, Object> inputNode, String fieldName) {
+		Object field = inputNode.get(fieldName);
+		if (field == null) {
+			return null;
+		}
+		if (!(field instanceof String value)) {
+			throw new InvalidAssistantActionInputException(
+					List.of(new AssistantActionInputError(fieldName, "Value must be an ISO instant.")));
+		}
+		try {
+			return java.time.Instant.parse(value);
+		} catch (java.time.format.DateTimeParseException exception) {
+			throw new InvalidAssistantActionInputException(
+					List.of(new AssistantActionInputError(fieldName, "Value must be an ISO instant.")));
+		}
+	}
+
+	private static boolean booleanField(Map<String, Object> inputNode, String fieldName) {
+		Object field = inputNode.get(fieldName);
+		if (field == null) {
+			return false;
+		}
+		if (!(field instanceof Boolean value)) {
+			throw new InvalidAssistantActionInputException(
+					List.of(new AssistantActionInputError(fieldName, "Value must be true or false.")));
+		}
+		return value;
 	}
 
 	private static UUID uuidField(String value, String fieldName) {

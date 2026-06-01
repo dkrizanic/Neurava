@@ -58,6 +58,7 @@ describe('SearchPage', () => {
     expect(await screen.findByRole('heading', { name: /planning memory/i })).toBeInTheDocument();
     expect(screen.getByText(/API problem/)).toBeInTheDocument();
     expect(screen.getByText(/91% match/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open details and edit/i })).toHaveAttribute('href', '/notes/note-1');
   });
 
   it('shows a refinement empty state without clearing the query', async () => {

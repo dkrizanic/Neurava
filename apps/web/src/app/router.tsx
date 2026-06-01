@@ -25,6 +25,20 @@ const AssistantPage = lazy(() =>
 const SearchPage = lazy(() =>
   import('../features/search/components/SearchPage').then((module) => ({ default: module.SearchPage })),
 );
+const RemindersPage = lazy(() =>
+  import('../features/reminders/components/RemindersPage').then((module) => ({ default: module.RemindersPage })),
+);
+const PlansPage = lazy(() =>
+  import('../features/plans/components/PlansPage').then((module) => ({ default: module.PlansPage })),
+);
+const IntegrationsPage = lazy(() =>
+  import('../features/integrations/components/IntegrationsPage').then((module) => ({
+    default: module.IntegrationsPage,
+  })),
+);
+const ProjectsPage = lazy(() =>
+  import('../features/projects/components/ProjectsPage').then((module) => ({ default: module.ProjectsPage })),
+);
 const NotFoundPage = lazy(() =>
   import('./routes/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
 );
@@ -63,6 +77,22 @@ export const router = createBrowserRouter([
       {
         element: withRouteLoading(<SearchPage />),
         path: 'search',
+      },
+      {
+        element: withRouteLoading(<RemindersPage />),
+        path: 'reminders',
+      },
+      {
+        element: withRouteLoading(<PlansPage />),
+        path: 'plans',
+      },
+      {
+        element: withRouteLoading(<IntegrationsPage />),
+        path: 'integrations',
+      },
+      {
+        element: withRouteLoading(<ProjectsPage />),
+        path: 'projects',
       },
       {
         element: withRouteLoading(<SectionPage />),
