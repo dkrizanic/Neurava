@@ -1,5 +1,6 @@
 import { apiBaseUrl } from '../../../shared/api/httpClient';
 import type {
+  AiActionHistorySummary,
   AssistantActionName,
   AssistantActionApplicationResponse,
   AssistantActionPreviewResponse,
@@ -60,6 +61,22 @@ export async function applyCreateNotePreview(
   }
 
   return response.json() as Promise<AssistantActionApplicationResponse>;
+}
+
+export async function fetchAiActionHistory(signal?: AbortSignal): Promise<AiActionHistorySummary[]> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/ai/action-history`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to load AI action history');
+  }
+
+  return response.json() as Promise<AiActionHistorySummary[]>;
 }
 
 async function executeAssistantAction<TAction extends AssistantActionName>(

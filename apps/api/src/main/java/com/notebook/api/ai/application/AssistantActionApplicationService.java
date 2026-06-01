@@ -18,10 +18,12 @@ import com.notebook.api.notes.application.NoteSummary;
 public class AssistantActionApplicationService {
 
 	private final NoteService notes;
+	private final AiActionHistoryService history;
 	private final Validator validator;
 
-	public AssistantActionApplicationService(NoteService notes, Validator validator) {
+	public AssistantActionApplicationService(NoteService notes, AiActionHistoryService history, Validator validator) {
 		this.notes = notes;
+		this.history = history;
 		this.validator = validator;
 	}
 
@@ -43,12 +45,14 @@ public class AssistantActionApplicationService {
 
 		NoteSummary entity = this.notes.create(ownerAccountId, workspaceContextId, input.title(), input.body(),
 				input.noteDate(), input.tags());
+		String summary = "Created note \"%s\".".formatted(entity.title());
+		this.history.recordCreatedNote(ownerAccountId, workspaceContextId, entity, summary);
 
 		return new AssistantActionApplicationResponse(
 				CREATE_NOTE,
 				"note",
 				"create",
-				"Created note \"%s\".".formatted(entity.title()),
+				summary,
 				entity);
 	}
 

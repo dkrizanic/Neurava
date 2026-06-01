@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { answerQuestion, applyCreateNotePreview, previewCreateNote, summarizeHistory } from './assistantApi';
+import {
+  answerQuestion,
+  applyCreateNotePreview,
+  fetchAiActionHistory,
+  previewCreateNote,
+  summarizeHistory,
+} from './assistantApi';
 
 describe('assistantApi', () => {
   afterEach(() => {
@@ -106,6 +112,29 @@ describe('assistantApi', () => {
         },
       }),
       method: 'POST',
+    }));
+  });
+
+  it('loads AI action history from the history endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([{
+      action: 'create_note',
+      changeType: 'create',
+      createdAt: '2026-06-01T15:00:00Z',
+      currentState: '{"title":"Clean title"}',
+      entityId: 'note-1',
+      entityType: 'note',
+      id: 'history-1',
+      ownerAccountId: 'account-1',
+      previousState: null,
+      summary: 'Created note "Clean title".',
+      workspaceContextId: 'workspace-1',
+    }]));
+
+    await expect(fetchAiActionHistory()).resolves.toMatchObject([
+      { summary: 'Created note "Clean title".' },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8080/api/v1/ai/action-history', expect.objectContaining({
+      credentials: 'include',
     }));
   });
 });

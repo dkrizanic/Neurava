@@ -1,11 +1,12 @@
 import { Bot, Check, RotateCcw, Send, X } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { SignedOutPrompt } from '../../auth/components/SignedOutPrompt';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Button, Field, LoadingState } from '../../../shared/ui';
 import { formatIsoDateTime } from '../../../shared/lib/dates';
-import { answerQuestion, applyCreateNotePreview, previewCreateNote } from '../api/assistantApi';
+import { answerQuestion, applyCreateNotePreview, fetchAiActionHistory, previewCreateNote } from '../api/assistantApi';
 import type {
+  AiActionHistorySummary,
   AssistantMessage,
   AssistantActionPreviewResponse,
   SourceReference,
@@ -15,6 +16,8 @@ export function AssistantPage() {
   const { activeWorkspace, authenticated } = useAuth();
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [history, setHistory] = useState<AiActionHistorySummary[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [applyingMessageId, setApplyingMessageId] = useState<string | null>(null);
@@ -26,6 +29,16 @@ export function AssistantPage() {
     && 'type' in latestMessage
     && latestMessage.type === 'error',
   );
+
+  useEffect(() => {
+    if (!authenticated) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    void loadHistory(controller.signal);
+    return () => controller.abort();
+  }, [authenticated]);
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,6 +105,19 @@ export function AssistantPage() {
     setMessages((current) => [...current, ...nextMessages]);
   }
 
+  async function loadHistory(signal?: AbortSignal) {
+    try {
+      const records = await fetchAiActionHistory(signal);
+      setHistory(records);
+      setHistoryError(null);
+    } catch (loadError) {
+      if (loadError instanceof DOMException && loadError.name === 'AbortError') {
+        return;
+      }
+      setHistoryError('AI action history could not be loaded.');
+    }
+  }
+
   async function applyPreview(messageIdToApply: string, preview: AssistantActionPreviewResponse) {
     if (applyingMessageId) {
       return;
@@ -101,6 +127,7 @@ export function AssistantPage() {
       const applied = await applyCreateNotePreview(preview.preview);
       setMessages((current) => current.filter((message) => message.id !== messageIdToApply));
       appendMessages([assistantTextMessage('status', `${applied.summary} It is now saved in Notes.`)]);
+      await loadHistory();
     } catch {
       appendMessages([assistantTextMessage('error', 'Note change could not be applied.')]);
     } finally {
@@ -182,6 +209,26 @@ export function AssistantPage() {
           Send
         </Button>
       </form>
+
+      <section className="assistant-history" aria-label="Recent AI changes">
+        <div>
+          <p className="eyebrow">AI action history</p>
+          <h3>Recent AI changes</h3>
+        </div>
+        {historyError ? <p className="session-warning">{historyError}</p> : null}
+        {!historyError && history.length === 0 ? (
+          <p className="muted-text">No AI changes have been applied yet.</p>
+        ) : null}
+        {history.map((record) => (
+          <article className="assistant-history__item" key={record.id}>
+            <div>
+              <h4>{record.summary}</h4>
+              <p>{record.entityType} {record.changeType}</p>
+            </div>
+            <time dateTime={record.createdAt}>{formatIsoDateTime(record.createdAt)}</time>
+          </article>
+        ))}
+      </section>
     </div>
   );
 }

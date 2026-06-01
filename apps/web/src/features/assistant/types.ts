@@ -67,6 +67,20 @@ export type AssistantActionApplicationResponse = {
   summary: string;
 };
 
+export type AiActionHistorySummary = {
+  action: AssistantPreviewActionName;
+  changeType: 'create';
+  createdAt: string;
+  currentState: string;
+  entityId: EntityId;
+  entityType: 'note';
+  id: EntityId;
+  ownerAccountId: EntityId;
+  previousState: string | null;
+  summary: string;
+  workspaceContextId: EntityId;
+};
+
 export type AssistantMessage =
   | {
       id: string;

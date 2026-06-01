@@ -2,17 +2,19 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { renderWithAuth } from '../../../test/renderWithAuth';
-import { answerQuestion, applyCreateNotePreview, previewCreateNote } from '../api/assistantApi';
+import { answerQuestion, applyCreateNotePreview, fetchAiActionHistory, previewCreateNote } from '../api/assistantApi';
 import { AssistantPage } from './AssistantPage';
 
 vi.mock('../api/assistantApi', () => ({
   answerQuestion: vi.fn(),
   applyCreateNotePreview: vi.fn(),
+  fetchAiActionHistory: vi.fn(),
   previewCreateNote: vi.fn(),
 }));
 
 const mockedAnswerQuestion = vi.mocked(answerQuestion);
 const mockedApplyCreateNotePreview = vi.mocked(applyCreateNotePreview);
+const mockedFetchAiActionHistory = vi.mocked(fetchAiActionHistory);
 const mockedPreviewCreateNote = vi.mocked(previewCreateNote);
 
 const authSession = {
@@ -34,6 +36,8 @@ describe('AssistantPage', () => {
   beforeEach(() => {
     mockedApplyCreateNotePreview.mockReset();
     mockedAnswerQuestion.mockReset();
+    mockedFetchAiActionHistory.mockReset();
+    mockedFetchAiActionHistory.mockResolvedValue([]);
     mockedPreviewCreateNote.mockReset();
   });
 
@@ -178,6 +182,21 @@ describe('AssistantPage', () => {
       entityType: 'note',
       summary: 'Created note "Lets make new note".',
     });
+    mockedFetchAiActionHistory
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        action: 'create_note',
+        changeType: 'create',
+        createdAt: '2026-06-01T15:00:00Z',
+        currentState: '{"title":"Lets make new note"}',
+        entityId: 'note-1',
+        entityType: 'note',
+        id: 'history-1',
+        ownerAccountId: 'account-1',
+        previousState: null,
+        summary: 'Created note "Lets make new note".',
+        workspaceContextId: 'workspace-1',
+      }]);
 
     renderWithAuth(<AssistantPage />, authSession);
 
@@ -192,7 +211,8 @@ describe('AssistantPage', () => {
       tags: 'make,note',
       title: 'Lets make new note',
     }));
-    expect(await screen.findByText(/created note "lets make new note"/i)).toBeInTheDocument();
+    expect(await screen.findByText(/it is now saved in notes/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/recent ai changes/i)).toHaveTextContent(/created note "lets make new note"/i);
     expect(mockedAnswerQuestion).not.toHaveBeenCalled();
   });
 });

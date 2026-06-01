@@ -410,6 +410,21 @@ class NoteRetrievalIndexFunctionalTest {
 						.with(user("apply-note-user", "apply-note@example.com")))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].title").value("Applied AI note"));
+
+		this.mockMvc.perform(get(ApiPaths.API_V1 + "/ai/action-history")
+						.with(user("apply-note-user", "apply-note@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$[0].action").value("create_note"))
+				.andExpect(jsonPath("$[0].entityType").value("note"))
+				.andExpect(jsonPath("$[0].changeType").value("create"))
+				.andExpect(jsonPath("$[0].summary").value("Created note \"Applied AI note\"."))
+				.andExpect(jsonPath("$[0].ownerAccountId").exists())
+				.andExpect(jsonPath("$[0].workspaceContextId").exists())
+				.andExpect(jsonPath("$[0].entityId").exists())
+				.andExpect(jsonPath("$[0].previousState").value(org.hamcrest.Matchers.nullValue()))
+				.andExpect(jsonPath("$[0].currentState").value(org.hamcrest.Matchers.containsString("Applied AI note")))
+				.andExpect(jsonPath("$[0].createdAt").exists());
 	}
 
 	@Test

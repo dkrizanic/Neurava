@@ -664,6 +664,42 @@ p {
   gap: 12px;
 }
 
+.assistant-history {
+  background: #ffffff;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.assistant-history h3,
+.assistant-history h4 {
+  color: #17202a;
+  margin: 0;
+}
+
+.assistant-history__item {
+  align-items: center;
+  border-top: 1px solid #eef2f7;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-top: 12px;
+}
+
+.assistant-history__item p,
+.muted-text {
+  color: #64748b;
+  margin: 0;
+}
+
+.assistant-history__item time {
+  color: #526173;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 .assistant-answer,
 .assistant-sources {
   display: grid;
